@@ -1,15 +1,28 @@
 from nltk.tree import *
 from nltk.featstruct import FeatStruct
-from TAGTree import TAGTree
 from Tkinter import *
 import ttk
+import os
 from nltk.util import in_idle
 #from TAGTree import TAGTreeSet
 from nltk.tree import Tree
 from math import sqrt, ceil
 from nltk.draw.tree import (TreeView, TreeWidget, TreeSegmentWidget)
-from nltk.draw.util import (CanvasFrame, CanvasWidget, BoxWidget,
-                            TextWidget, ParenWidget, OvalWidget)
+from nltk.draw.util import *
+
+class TAGTreeSegmentWidget(TreeSegmentWidget):
+
+    def __init__(self, canvas, node, subtrees, top_fs, bot_fs, **attribs):
+        TreeSegmentWidget.__init__(self, canvas, node, 
+                                      subtrees, **attribs)
+        self._top_fs = top_fs
+        self._bot_fs = bot_fs
+
+    def top_fs(self):
+        return self._top_fs
+
+    def bot_fs(self):
+        return self._bot_fs        
 
 class TAGTreeWidget(TreeWidget):
     
@@ -32,7 +45,12 @@ class TAGTreeWidget(TreeWidget):
             children = t
             subtrees = [self._make_expanded_tree(canvas, children[i], key+(i,))
                         for i in range(len(children))]
-            treeseg = TreeSegmentWidget(canvas, node, subtrees,
+            #treeseg = TreeSegmentWidget(canvas, node, subtrees,
+            #                            color=self._line_color,
+            #                            width=self._line_width)
+            
+            treeseg = TAGTreeSegmentWidget(canvas, node, subtrees, 
+                                        t.top_fs, t.bot_fs,
                                         color=self._line_color,
                                         width=self._line_width)
             self._expanded_trees[key] = treeseg
@@ -57,10 +75,39 @@ class TAGTreeWidget(TreeWidget):
                             "substp, head or foot ")
 
     def toggle_collapsed(self, treeseg):
-        self.show_fs()
+        self.show_fs(treeseg)
 
-    def show_fs(self):
-        return
+    def show_fs(self, treeseg):
+        
+        def fill(cw):
+            from random import randint
+            cw['fill'] = '#00%04d' % randint(0,9999)
+        def color(cw):
+            from random import randint
+            cw['color'] = '#ff%04d' % randint(0,9999)
+        
+        self._fsw = Toplevel(self._top)
+        self._fsw.title('Feature Structure')
+        self._fsw.bind('<Control-p>', lambda e: self.print_to_file())
+        self._fsw.bind('<Control-x>', self.destroy)
+        self._fsw.bind('<Control-q>', self.destroy)
+
+        fs = 'Top Feature Structure\n' + str(treeseg.top_fs()) + '\n\n'
+        fs += 'Bottom Feature Structure\n' + str(treeseg.bot_fs())
+
+        cf = CanvasFrame(self._fsw, closeenough=10, width=400, height=300)
+        c = cf.canvas()
+        ct2 = TextWidget(c, fs, draggable=1, justify='center')
+        space = SpaceWidget(c, 0, 30)
+        cstack = StackWidget(c, ct2, align='center')
+        cs = SequenceWidget(c, cstack)
+        zz = BracketWidget(c, cs, color='green4', width=3)
+        cf.add_widget(zz, 30, 30)
+        cf.pack()
+        self._fsw.mainloop()
+
+    def set_parent_window(self, parent):
+        self._top = parent
 
 class TAGTreeView(TreeView):
     def __init__(self, parent, trees):
@@ -96,6 +143,7 @@ class TAGTreeView(TreeView):
                                 roof_color='#004040', roof_fill='white',
                                 line_color='#004040', draggable=1,
                                 leaf_font=helv)
+            widget.set_parent_window(self._top)
             widget.bind_click_trees(widget.toggle_collapsed)
             self._widgets.append(widget)
             self._cframe.add_widget(widget, 0, 0)
@@ -605,12 +653,10 @@ def draw_trees(*trees):
 def demo():
     from util import xtag_parser
     from util import parse_from_files
-    f = open('test.txt')
-    s = ''
-    data = f.readlines()
-    for i in data:
-        s += i
-    t = parse_from_files(['lex.trees','Tnx0VN1.trees'])
+    #files = os.listdir('grammar')
+    #print files
+    files = ['advs-adjs.trees', 'auxs.trees', 'comparatives.trees', 'conjunctions.trees', 'determiners.trees', 'lex.trees', 'modifiers.trees', 'neg.trees', 'prepositions.trees', 'punct.trees', 'TEnx1V.trees']    #files = [os.path.join('grammar',i) for i in files]
+    t = parse_from_files(files)
     t.view()
 
 if __name__ == '__main__':
