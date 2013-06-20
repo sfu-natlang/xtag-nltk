@@ -655,7 +655,8 @@ def demo():
     from util import parse_from_files
     #files = os.listdir('grammar')
     #print files
-    files = ['advs-adjs.trees', 'auxs.trees', 'comparatives.trees', 'conjunctions.trees', 'determiners.trees', 'lex.trees', 'modifiers.trees', 'neg.trees', 'prepositions.trees', 'punct.trees', 'TEnx1V.trees']    #files = [os.path.join('grammar',i) for i in files]
+    files = ['Tnx0VN1.trees', 'lex.trees']
+    #files = ['advs-adjs.trees', 'auxs.trees', 'comparatives.trees', 'conjunctions.trees', 'determiners.trees', 'lex.trees', 'modifiers.trees', 'neg.trees', 'prepositions.trees', 'punct.trees', 'TEnx1V.trees']    #files = [os.path.join('grammar',i) for i in files]
     t = parse_from_files(files)
     t.view()
 
