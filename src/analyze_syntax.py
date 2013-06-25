@@ -18,15 +18,23 @@ def get_next_pair(s,start):
     index_start = s.find('<<',start)
     if index_start == -1:
         value = s[start:]
-        index_start = len(s) - 1
+        index_return = len(s) - 1
     else:
         value = s[start:index_start]
+        index_return = index_start
 
-    return (entry,value,index_start)
+    return (entry,value,index_return)
 
+# This function returns a dictionary, the index is exactly the <<INDEX>>
+# entry in the syntax file. Each keyword will fetch a list, the element of
+# which is just the lines with the same <<INDEX>>. Each list has four components
+# The first is called entry_list, the element of which is tuples with <<ENTRY>>
+# and <<POS>> being the 1st and 2nd element. The 2nd list is called tree_list
+# the element of which is tree name. The 3rd list is called family_list
+# the element of which is family name. The fourth list is called feature_list
+# the element of which is feature name.
 def analyze_syntax(s):
     lines = s.splitlines()
-
     tokens = {}
     for l in lines:
         if l == '':
@@ -36,19 +44,19 @@ def analyze_syntax(s):
         tree_list = []
         family_list = []
         feature_list = []
-        name = 'noname'
+        line_name = 'noname'
         while True:
-            next_pair = get_next_pair(s,start)
+            next_pair = get_next_pair(l,start)
             start = next_pair[2]
-            if start == -1:
-                break
             entry = next_pair[0]
             value = next_pair[1]
-            if entry == 'INDEX':
-                name = value[:]
+            if start == -1:
+                break
+            elif entry == 'INDEX':
+                line_name = value
             elif entry == 'ENTRY':
                 entry_name = value
-                next_pair = get_next_pair(s,start)
+                next_pair = get_next_pair(l,start)
                 start = next_pair[2]
                 check_index(start)
                 entry = next_pair[0]
@@ -65,14 +73,14 @@ def analyze_syntax(s):
             elif entry == 'FEATURES':
                 feature_list = value.split()
             else:
-                raise TypeError('Unknown type: %s' % (entry))
+                pass
+                #raise TypeError('Unknown type: %s' % (entry))
 
         temp = (entry_list,tree_list,family_list,feature_list)
-        print name
-        if tokens.has_key(name):
-            tokens[name].append(temp)
+        if tokens.has_key(line_name):
+            tokens[line_name].append(temp)
         else:
-            tokens[name] = [temp]
+            tokens[line_name] = [temp]
     return tokens
 
 
@@ -84,5 +92,5 @@ def debug(filename):
     
 
 if __name__ == '__main__':
-    debug('syntax-coded-test.flat')
+    debug('syntax-coded.flat')
     

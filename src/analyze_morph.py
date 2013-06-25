@@ -1,5 +1,5 @@
 
-# The return value is a dictionaru using words in the sentence as index. The
+# The return value is a dictionary using words in the sentence as index. The
 # entry is a list, the element of which is a tuple. The first element of the
 # tuple is the lexicon, the second element of the tuple is the type of this lex,
 # and the third element of the tuple is again a list 
