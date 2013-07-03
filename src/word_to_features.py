@@ -8,6 +8,9 @@ def word_to_features(word):
     global dicts
     result = []
     #print dicts[0][word]
+
+    if not dicts[0].has_key(word):
+        return None
     
     for entry in dicts[0][word]:
         temp_feature = dicts[1][entry[0]]
@@ -25,7 +28,7 @@ def word_to_features(word):
                     features2.append(dicts[2][0][j])
                 
                 result.append((i[0],i[1],i[2],features,features2))
-                print features2,'\n'
+                #print features2,'\n'
     return result
         #print dicts[1][entry[0]]
 
