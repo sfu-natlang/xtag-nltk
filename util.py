@@ -8,6 +8,8 @@ import copy
 from nltk.util import in_idle
 from nltk.tree import Tree
 from math import sqrt, ceil
+#from src.regxp_feature import *
+from regxp_feature import *
 from nltk.draw.tree import (TreeView, TreeWidget, TreeSegmentWidget)
 from nltk.sem.logic import (Variable, Expression)
 from nltk.draw.util import *
@@ -240,6 +242,7 @@ class TAGTreeSetView(object):
             self._top.bind('<Control-p>', lambda e: self.print_to_file())
             self._top.bind('<Control-x>', self.destroy)
             self._top.bind('<Control-q>', self.destroy)
+            self._top.geometry("1400x800")
         else:
             self._top = parent
 
@@ -250,8 +253,8 @@ class TAGTreeSetView(object):
         self._e = Entry(frame, textvariable=v)
         self._show_fs = True
         show_fs_button = Button(frame, text="Show Features", command=self.show_fs)
-        highlight_button = Button(frame, text="Highlight", command=self.okbutton)
-        remove_button = Button(frame, text="Remove", command=self.okbutton)
+        highlight_button = Button(frame, text="Highlight", command=self.highlight)
+        remove_button = Button(frame, text="Remove", command=self.remove)
         keep_button = Button(frame, text="Keep", command=self.keep)
         show_fs_button.pack(side = LEFT)
         w.pack(side = LEFT)
@@ -259,6 +262,27 @@ class TAGTreeSetView(object):
         highlight_button.pack(side = RIGHT)
         keep_button.pack(side = RIGHT)
         remove_button.pack(side = RIGHT)
+        
+
+        statframe = Frame(self._top)
+        notfl = Label(statframe, text='Tree Framilies:')
+        self.notf = StringVar()
+        #self.notf.set(str(self._trees.tree_family_count()))
+        self.nott = StringVar()
+        tfcl = Label(statframe, textvariable=self.notf)
+        nottl = Label(statframe, text='Trees:')
+        #print self._trees.tree_count()
+        tcl = Label(statframe, textvariable=self.nott)
+
+        self.notf.set(str(self._trees.tree_family_count()))
+        self.nott.set(str(self._trees.tree_count()))
+
+        statframe.pack(side = BOTTOM, fill='both')
+        notfl.pack(side = LEFT)
+        tfcl.pack(side = LEFT)
+        nottl.pack(side = LEFT)
+        tcl.pack(side = LEFT)
+
         frame.pack(side = BOTTOM, fill='both')
 
         self._frame = Frame(self._top)
@@ -307,11 +331,16 @@ class TAGTreeSetView(object):
         tree = self._trees
         for subpath in path[1:]:
             if subpath in tree:
+                if not isinstance(tree, type(self._trees)):
+                    if tree._lex:
+                        tree[subpath] = tree[subpath].copy(True)
+                #tree = 
+                #else:
                 tree = tree[subpath]
             else:
                 raise TypeError("%s: tree does not match"
                              % type(self).__name__)
-        #print type(tree)
+        #print path[1:]
         if not isinstance(tree, type(self._trees)):
             #print self._show_fs
             #if self._lex:
@@ -319,9 +348,11 @@ class TAGTreeSetView(object):
             #    self._tw.redraw(self._show_fs, tree)
             #else:
             if tree._lex:
-                lextree = copy.deepcopy(tree)
-                lextree.lexicalize()
-                self._tw.redraw(self._show_fs, lextree)
+                #print tree._lex_fs
+                #lextree = copy.deepcopy(tree)
+                #tree = copy.deepcopy(tree)
+                tree.lexicalize()
+                self._tw.redraw(self._show_fs, tree)
             else:
                 self._tw.redraw(self._show_fs, tree)
 
@@ -359,6 +390,9 @@ class TAGTreeSetView(object):
     def update(self, trees):
         self._trees = trees
         self.populate_tree('', trees)
+        self.notf.set(str(self._trees.tree_family_count()))
+        self.nott.set(str(self._trees.tree_count()))
+        #self.nott.text('1')
 
         #print 'after remove', self._tagview.get_children()
 
@@ -380,8 +414,20 @@ class TAGTreeSetView(object):
 
     def show_fs(self):
         self._show_fs = not self._show_fs
-        self.display()
-        return
+        node = self._tagview.focus()
+        #print node
+        path = self._tagview.set(node, "fullpath").split('/')
+        #print path
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        #print path[1:]
+        if not isinstance(tree, type(self._trees)):
+            self._tw.redraw(self._show_fs, tree)
 
     def keep(self):
         #self._show_fs = self._e.get()
@@ -403,7 +449,42 @@ class TAGTreeSetView(object):
             self._tw.redraw(self._show_fs, tree, keep=True, reg=self._e.get())
         return
 
-    def okbutton(self):
+    def highlight(self):
+        #self._show_fs = self._e.get()
+        node = self._tagview.focus()
+        #print node
+        path = self._tagview.set(node, "fullpath").split('/')
+        #print path
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        #print tree.get_all_fs()
+        if not isinstance(tree, type(self._trees)):
+            #print self._show_fs
+            #self._tw.
+            self._tw.redraw(self._show_fs, tree, highlight=True, reg=self._e.get())
+
+    def remove(self):
+        node = self._tagview.focus()
+        #print node
+        path = self._tagview.set(node, "fullpath").split('/')
+        #print path
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        #print tree.get_all_fs()
+        if not isinstance(tree, type(self._trees)):
+            #print self._show_fs
+            #self._tw.
+            self._tw.redraw(self._show_fs, tree, remove=True, reg=self._e.get())
         return
  
 # first_pass(s) will split the options and trees into a list, the first and second
@@ -412,12 +493,29 @@ class TAGTreeSetView(object):
 class TAGTreeSet(dict):
 
     def __init__(self, trees=None):
+        #self.num_of_trees = [0]
+        #self.num_of_trees_list = [0]
+        #self.num_of_tree_families = [0]
+        #self.num_of_tree_families_list = [0]
         dict.__init__(self)
         if trees:
             self.update(trees)
+        #    self.num_of_trees_list += trees.num_of_trees_list
+        #    self.num_of_tree_families_list += tree.num_of_tree_families_list
 
     def __setitem__(self, tree_name, tree):
         dict.__setitem__(self, tree_name, tree)
+        #if isinstance(tree, TAGTree):
+        #    self.num_of_trees[0] += 1
+        #elif len(tree) and isinstance(tree.items()[0][1], TAGTree):
+        #    self.num_of_trees[0] += tree.num_of_trees[0]
+        #    self.num_of_tree_families[0] += 1
+        #else:
+        #    print 11111
+        #    print tree.num_of_trees[0]
+        #    print 111111
+        ##    self.num_of_trees[0] += tree.num_of_trees[0]
+        #   self.num_of_tree_families[0] += tree.num_of_tree_families[0]
 
     def __getitem__(self, tree_name):
         return self.get(tree_name, 0)
@@ -434,6 +532,14 @@ class TAGTreeSet(dict):
     def __add__(self, other):
         clone = self.copy()
         clone.update(other)
+        #if isinstance(other, TAGTreeSet):
+        #    if len(other) and isinstance(other.items()[0][1], TAGTree):
+        #        clone.num_of_tree_families[0] = self.num_of_tree_families[0] + 1
+        #    else:
+        #        clone.num_of_tree_families[0] = other.num_of_tree_families[0]
+        #    clone.num_of_trees[0] = self.num_of_trees[0] + other.num_of_trees[0]
+        #else:
+        #    raise TypeError('TAGTreeSet')
         return clone
 
     def __le__(self, other):
@@ -449,8 +555,8 @@ class TAGTreeSet(dict):
         if not isinstance(other, TAGTreeSet): return False
         return other < self
 
-    def count(self):
-        return len(self)
+    #def count(self):
+    #    return len(self)
 
     def tree_names(self):
         return self.keys()
@@ -471,6 +577,39 @@ class TAGTreeSet(dict):
 
     def view(self):
         TAGTreeSetView(self).mainloop()
+
+    def tree_count(self):
+        total = 0 
+        for tree in self:
+            if isinstance(self[tree], TAGTreeSet):  # checks if `i` is a list
+                total += self[tree].tree_count()
+            else:
+                total += 1
+        return total
+
+    def tree_family_count(self):
+        total = 0 
+        for tree in self:
+            if isinstance(self[tree], TAGTreeSet) and tree[-6:] == '.trees':  # checks if `i` is a list
+                total += 1
+            elif isinstance(self[tree], TAGTreeSet):
+                total += self[tree].tree_family_count()
+        #print total
+        #print 11111122
+        return total
+
+    def copy(self, deep=True):
+        if deep:
+            return copy.deepcopy(self)
+        else:
+            clone = type(self)()
+            for tree in self:
+                if not isinstance(self[tree], TAGTreeSet):
+                    clone[tree] = self[tree].copy(False)
+                else:
+                    clone += copy.copy(tree)
+            return clone
+
     #@classmethod
     #def parse(cls, txt):
     #    return xtag_parser(txt)
@@ -835,6 +974,15 @@ class TAGTree(Tree):
     def draw(self):
         draw_trees(self)
 
+    def copy(self, deep=False):
+        if deep:
+            return copy.deepcopy(self)
+        else:
+            clone = copy.copy(self)
+            if clone._lex:
+                clone._lex_fs = copy.deepcopy(self._lex_fs)
+        return clone
+
     def get_node(self, name_or_attr):
         nodes = []
         results = []
@@ -859,6 +1007,7 @@ class TAGTree(Tree):
         self.append(children)
 
     def init_lex(self, morph, fs1, fs2):
+        #print fs2
         self._morph = morph
         #self._lex_fs = fs1
         self._lex_fs = []
@@ -884,17 +1033,16 @@ class TAGTree(Tree):
         #dict[_fs_name(last.node, False)] = dict[old_key]
         #del dict[old_key]
         self._lex = True
+        #print self._lex_fs
 
     def lexicalize(self):
         morph = self._morph
         fs = self._lex_fs
-        print morph
         #new_fs = FeatStruct()
         heads = self.get_head()
         for head in heads:
             for m in morph:
                 if head.get_node_name() == m[1]:
-                    print m[1]
                     lex = TAGTree(m[0], [], 'lex')
                     head.set_children(lex)
                     all_fs = self.get_all_fs()
@@ -1043,119 +1191,120 @@ def _all_widget(feats, reentrances, reentrance_ids, c, name):
     return SequenceWidget(c, *widgets, align='center')
 
 def _fs_widget(feats, c, name, **attribs):
-    '''
-    for i in range(0,120):
-        BracketWidget(c, TextWidget(c, 'None', justify='center'), color='black', width=1)
-    return BracketWidget(c, TextWidget(c, 'None', justify='center'), color='black', width=1)
-    '''
-    #if not name:
-    #    return _all_widget(feats, reentrances, reentrance_ids, c, name=None)
+
     fstr = feats.__repr__()
-    #print fstr
+    fstr = fstr.replace('__value__=','')
+    fstr = fstr.replace("'",'')
+    
     d = {}
     for (attr, value) in attribs.items(): 
         d[attr] = value
     reg = None
     if 'reg' in d:
         reg = d['reg']
-    #print fstr
-    #for i in fstr.split(','):
-    #    print i
-    #print name
     s = fstr.find(name)
     l = find_left_bracket(fstr[s:])
     r = match_bracket(fstr[s:])
     match_str = fstr[s+l+1:s+r]
-    if reg:
-        bcount = 1
-        rcount = 1
-        #print reg
-        p = re.compile(reg)
-        iterator = p.finditer(match_str)
-        match_str = '[' + match_str + ']'
-        for match in iterator:
-            (start, end) = match.span()
+    result = match_str
 
-        '''
-        for match in iterator:
-            (start, end) = match.span()
-            print start, end
-            for i in range(0, start+1):
-                if match_str[start-i] == '[':
-                    lindex = start-i
-                elif match_str[start-i] == ']':
-                    break
-            for i in range(end, len(match_str)):
-                if match_str[i] == ']':
-                    rcount -= 1
-                elif match_str[i] == '[':
-                    rcount += 1
-                if match_str[i] == ']' and rcount == 0:
-                    rindex = i
-            print lindex
-            print rindex
-            print 111111
-        '''
-       #print "matchObj.group(1) : ", matchObj.group(1)
-       #print "matchObj.group(2) : ", matchObj.group(2)
-    #print fstr[s+l+1:s+r]
-    #print fstr[s+l+1:s+r]
-    #a= parse_to_widget(fstr[s+l+1:s+r], c)
-    if s+l+1 == s+r:
-        return BracketWidget(c, TextWidget(c, '', justify='center'), color='black', width=1)
-    widget = parse_to_widget(fstr[s+l+1:s+r], c)
-    #if not isinstance(widget, TextWidget):
+    if s+l+1 == s+r or not match_str:
+        print 'not match'
+        return TextWidget(c, '[ ]', justify='center')
+
+    #print match_str
+    if reg and len(reg) > 0:
+        if 'highlight' in d:
+            match_list = re.split('(\[|\,|\])', match_str)
+            result = ''
+            for i in match_list:
+                try:    
+                    result += re.compile(r'((%s\s*)+)' % reg).sub(r'<h>\1<h>', i)
+                except re.error, e:
+                    print e
+                    widget = parse_to_widget(match_str, c)
+                    return BracketWidget(c, widget, color='black', width=1)
+            widget = parse_to_widget(result, c, True)
+        elif 'keep' in d:
+            fstr = match_feature(feats, reg, 0).__repr__()
+            fstr = fstr.replace("'",'')
+            fstr = fstr.replace('__value__=','')
+            print fstr
+            s = fstr.find(name)
+            l = find_left_bracket(fstr[s:])
+            r = match_bracket(fstr[s:])
+            if l and r:
+                result = fstr[s+l+1:s+r]
+            else:
+                return TextWidget(c, '[ ]', justify='center')
+            #print l, r, match_str
+            widget = parse_to_widget(result, c)
+            print widget
+            #print widget
+            #print widget
+        elif 'remove' in d:
+            fstr = match_feature(feats, reg, 1).__repr__()
+            #print fstr
+            fstr = fstr.replace('__value__=','')
+            fstr = fstr.replace("'",'')
+            s = fstr.find(name)
+            l = find_left_bracket(fstr[s:])
+            r = match_bracket(fstr[s:])
+            if l and r:
+                result = fstr[s+l+1:s+r]
+            else:
+                result = match_str
+            widget = parse_to_widget(result, c)
+    else:
+        widget = parse_to_widget(result, c)
     return BracketWidget(c, widget, color='black', width=1)
-    #else:
-    #    return widget
-    #'''
 
-def parse_to_widget(fstr, c, highlight=None):
+def parse_to_widget(fstr, c, highlight=False):
     wl = []
     l = find_left_bracket(fstr)
     if l:
         r = match_bracket(fstr)
-        lw = parse_to_widget(fstr[l+1:r], c)
+        lw = parse_to_widget(fstr[l+1:r], c, highlight)
         tl = []
-        for item in fstr[:l].split(',')[:-1]:
+        strlist = fstr[:l].split(',')
+        for item in strlist[:-1]:
             if len(item) > 0:
-                tl.append(TextWidget(c, '%s' % item, justify='center'))
-        tw = TextWidget(c, '%s' % fstr[:l].split(',')[-1], justify='center')
+                if highlight and ('<h>' in item):
+                    tl.append(BoxWidget(c, TextWidget(c, '%s' % item.replace('<h>',''), justify='center'), outline='white', fill='yellow'))
+                else:
+                    tl.append(TextWidget(c, '%s' % item, justify='center'))
+        if highlight and ('<h>' in strlist[-1]):
+            tw = BoxWidget(c, TextWidget(c, '%s' % strlist[-1].replace('<h>',''), justify='center'), outline='white', fill='yellow')
+        else:
+            tw = TextWidget(c, '%s' % strlist[-1], justify='center')
         if not isinstance(lw, TextWidget):
-            #print 111111111
             lw = BracketWidget(c, lw, color='black', width=1)
         tl.append(SequenceWidget(c, tw, lw, align='center'))
         wl.append(StackWidget(c, *tl))
         if r+1 != len(fstr):
-            wl.append(parse_to_widget(fstr[r+1:len(fstr)], c))
+            wl.append(parse_to_widget(fstr[r+1:len(fstr)], c, highlight))
     else:
         tl = []
         textl = fstr.split(',')
         textl = filter(None, textl)
-        if highlight:
+        if len(textl) == 0:
+            return TextWidget(c, '[ ]', justify='center')
+        elif highlight:
             for item in textl:
                 item = item.replace('__value__=','')
                 item = item.replace("'",'')
-                hightext = item.split('<h>')
-                if len(hightext) > 1:
-                    tl.append(BoxWidget(c, TextWidget(c, '%s' % item, justify='center'), outline='white', color='yellow'))
+                if '<h>' in item:
+                    tl.append(BoxWidget(c, TextWidget(c, '%s' % item.replace('<h>',''), justify='center'), outline='white', fill='yellow'))
                 else:
                     tl.append(TextWidget(c, '%s' % item, justify='center'))
             return StackWidget(c, *tl)
-        if len(textl) == 1 and '__value__=' in textl[0]:
-            item = textl[0]
-            item = item.replace('__value__=','')
-            item = item.replace("'",'')
-            return TextWidget(c, '[ %s ]' % item, justify='center')
         elif len(textl) == 1:
-            item = textl[0]
-            item = item.replace("'",'')
-            return TextWidget(c, '%s' % textl[0], justify='center')
+            if '->(' in textl[0]:
+                return TextWidget(c, '%s' % textl[0], justify='center')
+            else:
+                return TextWidget(c, '[ %s ]' % textl[0], justify='center')
         else:
             for item in textl:
-                item = item.replace('__value__=','')
-                item = item.replace("'",'')
-                #item.split('<h>')
                 tl.append(TextWidget(c, '%s' % item, justify='center'))
             return StackWidget(c, *tl)
     cstack = StackWidget(c, *wl)
@@ -1166,7 +1315,7 @@ def find_left_bracket(fstr):
     for i in range(0, len(fstr)):
         if fstr[i] == '[':
             return i
-    return None
+    #return None
 
 def match_bracket(fstr):
     count = 0
@@ -1177,7 +1326,8 @@ def match_bracket(fstr):
             count -= 1
             if count == 0:
                 return i
-    raise None
+    #print fstr, count
+    #raise None
 
        
 
@@ -1194,20 +1344,8 @@ def fs_widget(fs, allfs, canvas, name, **attribs):
 def demo():
     from util import xtag_parser
     from util import parse_from_files
-    #files = os.listdir('grammar')
-    #print files
     files = ['grammar/advs-adjs.trees']#, 'auxs.trees', 'comparatives.trees', 'conjunctions.trees', 'determiners.trees', 'lex.trees', 'modifiers.trees', 'neg.trees', 'prepositions.trees', 'punct.trees', 'TEnx1V.trees']    #files = [os.path.join('grammar',i) for i in files]
-    #files = ['grammar/advs-adjs.trees']
     t = parse_from_files(files, 'grammar')
-    #for i in t:
-        #for j in t[i]:
-            #print 'TREE!!!', t[i][j]
-            #print t[i][j].get_all_fs()
-            #for k in t[i][j]:
-            #    print k
-            #for k in t[i][j].get_node('foot'):
-            #    k.node = 'changed'
-            #print t[i][j]
     t.view()
 
 
