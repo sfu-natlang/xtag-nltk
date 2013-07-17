@@ -1,6 +1,9 @@
 
 
 def get_next_token(s,index,length=None):
+    # This function is used by the LL parser to extract out tokens from the input
+    # stream, which is not a general one, but is designed and simplified just
+    # for use in the XTAG case. DO NOT USE IT AS A PUBLIC FUNCTION.
     # state = 0: outside anything
     # state = 1: inside ""
     # state = 2: inside identifier
@@ -49,6 +52,9 @@ def get_next_token(s,index,length=None):
 catalog_name = {}
 
 def add_new_name(s,index):
+    # This function will add a global name, i.e. those defined after 'setf'
+    # into a global dictionary, called catalog_name, and will be retrieved by
+    # generate_string later.
     global catalog_name
     token_1 = get_next_token(s,index)
     index = token_1[1]
@@ -64,6 +70,8 @@ def add_new_name(s,index):
     return (token_2[0][1:-1],index)
 
 def generate_string(s,index):
+    # This function will generate a string using the defined ifentifier name
+    # i.e. catalog_name. This will be called if a "concatenate 'string" is encountered.
     global catalog_name
     token = get_next_token(s,index)
     index = token[1]
@@ -83,6 +91,9 @@ def generate_string(s,index):
         raise TypeError("generate_string: Don't support concatenate except \"'string\"")
 
 def evaluate_expression(s,index):
+    # This function will evaluate those "expressions" defined by 'setf' or
+    # 'concatenate', and dispatch them to the corresponding functions
+    # No other expression typeare supported for now
     token = get_next_token(s,index)
     if token[0] != '(':
         raise TypeError("evaluate_expression: '(' expected.")
@@ -105,8 +116,10 @@ def evaluate_expression(s,index):
         return (ret[0],index)
 
 def parse_expression(s,index):
+    # This function is used to paese an expression. i.e. those strings identified
+    # by '"' at the start and the end, and also other types, such as 'setf'
+    # and 'concatenate'.
     values = []
-
     while True:
         token = get_next_token(s,index)
         
@@ -123,12 +136,11 @@ def parse_expression(s,index):
                 index = exp_value[1]
         else:
             return [("expr",values),index]
-        
-        
-
-        
 
 def parse_option(s,index):
+    # This function will parse an option and return the tree, each node of which
+    # is actually a option entry of that option. An option is defined as being strated
+    # by a ':' symbol, the format of which is :[option name] [option value]
     token = get_next_token(s,index)
     if token[0] != ':':
         return (None,index)
@@ -143,6 +155,10 @@ def parse_option(s,index):
     return [("optn",option_name,exp[0]),index]
 
 def parse_option_set(s,index):
+    # This function is used to parse an option set, which starts with a "(:"
+    # and ends with a ")". There can be option entries or even another option
+    # in an option, so that it is defined as naturally nested. Also we must
+    # distinguish between an sub-option and option entry inside an option.
     token = get_next_token(s,index)
     if token[0] != '(':
         # push back the token just fetched by returning index
@@ -171,6 +187,11 @@ def parse_option_set(s,index):
     return [("opts",options),index]
 
 def parse_language(s,index):
+    # This function is called to parse a language in the .grammar file, which
+    # starts with "(defgrammar [language name]" and ends with ")". There can
+    # be only options in the language. And the parse supports more than one
+    # language defined in one file, which is represented as a node under
+    # the "top" node. 
     token = get_next_token(s,index)
     if token[0] != '(':
         return (None,index)
@@ -200,6 +221,21 @@ def parse_language(s,index):
     
 
 def parse_catalog(s,index):
+    # This function parses the catalog repersented in a string. The return value
+    # is a node of the tree whose content is just the options and other
+    # elements of the catalog string. The formats are presented below:
+    # node[0] == top: A top node
+    #     node[1] ~ end = languages
+    # node[0] == lang: A language node
+    #     node[1] = language name
+    #     node[2] ~ end = option sets
+    # node[0] == opts: An option set
+    #     node[1] ~ end = option
+    # node[0] == optn: An option entry
+    #     node[1] = option entry name
+    #     node[2] ~ end = option entry values
+    # node[0] == expr: An expression node
+    #     node[1] ~ end = expression values
     top = []
     while True:
         lang = parse_language(s,index)
@@ -232,13 +268,58 @@ def print_tree(node,table):
             print '    ' * table + value
         
 
-def debug(filename):
+def get_catalog(filename):
     fp = open(filename)
     s = fp.read()
     fp.close()
 
     cata = parse_catalog(s,0)
+    return cata
+    #print_tree(cata,0)
 
-    print_tree(cata,0)
+file_list = None
+suffix = None
+path = None
+
+def get_file_tree(node,type_string):
+    global file_list,suffix,path
+    ret = None
+    if node[0] == "top":
+        for lang in node[1]:
+            ret = get_file_tree(lang,type_string)  
+    elif node[0] == 'lang':
+        for opts in node[2]:
+            ret = get_file_tree(opts,type_string)
+    elif node[0] == "opts":
+        for optn in node[1]:
+            if optn[1] == type_string:
+                file_list = node[1][0][2][1]
+                type_suffix = node 
+                suffix = node[1][1][1][1][2][1][0]
+                path = node[1][1][1][0][2][1][0]
+                return None
+            else:
+                ret = get_file_tree(optn,type_string)
+    elif node[0] == 'optn':
+        ret = get_file_tree(node[2],type_string)
+    elif node[0] == 'expr':
+        pass
+    else:
+        raise TypeError("Unknown keyword in the catalog: " + node[0])
     
-debug('english.gram')
+    return ret
+
+def get_file_list(node,type_string):
+    global file_list,suffix,path
+    get_file_tree(node,type_string)
+    file_list_full = []
+    if suffix == 'db':
+        suffix_str = 'flat'
+    else:
+        suffix_str = suffix
+    for i in file_list:
+        file_list_full.append(i + '.' + suffix_str)
+    return (file_list_full,path[:]) # We must copy the path string
+
+cata = get_catalog('../../xtag-english-grammar/english.gram')
+print get_file_list(cata,'tree-files')
