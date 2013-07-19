@@ -89,4 +89,6 @@ def demo():
             print j
 
 if __name__ == '__main__':
-
+    demo()
+else:
+    pass
