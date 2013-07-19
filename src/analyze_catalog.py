@@ -1,5 +1,3 @@
-
-
 def get_next_token(s,index,length=None):
     # This function is used by the LL parser to extract out tokens from the input
     # stream, which is not a general one, but is designed and simplified just
@@ -247,7 +245,9 @@ def parse_catalog(s,index):
             
     return ("top",top)
 
-def print_tree(node,table):
+def print_tree(node,table=0):
+    # This function is used to print a parse tree in a pre-order manner
+    # node should be the root or any sub-tree, and table should not be used
     if node[0] == "top":
         for lang in node[1]:
             print table * '    ' + "top"
@@ -269,6 +269,8 @@ def print_tree(node,table):
         
 
 def get_catalog(filename):
+    # Given the filename, this function is used to get the parse tree from
+    # that file.
     fp = open(filename)
     s = fp.read()
     fp.close()
@@ -282,6 +284,8 @@ suffix = None
 path = None
 
 def get_file_tree(node,type_string):
+    # Given the root node of the parse tree, and the file type
+    # you want to get, this function will return a list containing
     global file_list,suffix,path
     ret = None
     if node[0] == "top":
@@ -321,5 +325,11 @@ def get_file_list(node,type_string):
         file_list_full.append(i + '.' + suffix_str)
     return (file_list_full,path[:]) # We must copy the path string
 
-cata = get_catalog('../../xtag-english-grammar/english.gram')
-print get_file_list(cata,'tree-files')
+def demo():
+    cata = get_catalog('../../xtag-english-grammar/english.gram')
+    print get_file_list(cata,'tree-files')
+
+if __name__ == "__main__":
+    demo()
+else:
+    pass
