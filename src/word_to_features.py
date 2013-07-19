@@ -1,14 +1,23 @@
 from analyze_morph import analyze_morph
 from analyze_syntax import analyze_syntax
 from analyze_template import analyze_template
+from analyze_catalog import get_catalog,get_file_list
 
 dicts = None
+inited = False
 
 def word_to_features(word):
+    # This function will convert the word into the feature structures associated
+    # with this word. The return value of this function is a list, each element
+    # of which is a tuple. The element of the list is the morph of the word.
+    # NOTICE: This function must be run after init() be called, or it will
+    # throw the exception.
+    if inited == False:
+        raise KeyError("Initial file name not provided. Please run init() first.")
+
     global dicts
     result = []
     #print dicts[0][word]
-
     if not dicts[0].has_key(word):
         return None
     
@@ -32,31 +41,34 @@ def word_to_features(word):
     return result
         #print dicts[1][entry[0]]
 
-
-def debug(dicts):
-    print dicts[0][condom]
-
-def init():
+def init(morph,syntax,temp):
+    # This function will initiate the environment where the XTAG grammar
+    # system will run.
+    # morph is the path of trunc_morph.flat
+    # syntax is the path of syntax-coded.flat
+    # temp is the path of templates.lex (there are two of them, both are OK)
+    # All path can be absolute path or relative path
     global dicts
-    fp = open('trunc_morph.flat')
+    fp = open(morph)
     s = fp.read()
     morph_dict = analyze_morph(s)
     fp.close()
 
-    fp = open('syntax-coded.flat')
+    fp = open(syntax)
     s = fp.read()
     syntax_dict = analyze_syntax(s)
     fp.close()
 
-    fp = open('templates.lex')
+    fp = open(temp)
     s = fp.read()
     template_dict = analyze_template(s)
     fp.close()
 
     dicts = (morph_dict,syntax_dict,template_dict)
+    inited = True
+    return
 
-if __name__ == '__main__':
-    init()
+def demo():
     r = word_to_features('schedules')
     for i in r:
         print '---------------- new -------------------'
@@ -75,3 +87,6 @@ if __name__ == '__main__':
         print '================ i[0] =================='
         for j in i[0]:
             print j
+
+if __name__ == '__main__':
+
