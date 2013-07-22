@@ -737,6 +737,7 @@ def third_pass(xtag_trees):
 
         f_temp = f_temp.splitlines()
         for i in f_temp:
+            i = str.strip(i)
             if i != '':
                 exp = i.split('=')
                 exp[0] = exp[0].strip()
@@ -977,6 +978,7 @@ def init(morph,syntax,temp):
     for word_to_features() and other support functions to function. This should
     be the first call before any other calls to word_to_features().
     """
+    global inited
     global dicts
     global inited
     fp = open(morph)
