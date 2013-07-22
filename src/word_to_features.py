@@ -12,6 +12,13 @@ def word_to_features(word):
     # of which is a tuple. The element of the list is the morph of the word.
     # NOTICE: This function must be run after init() be called, or it will
     # throw the exception.
+    """
+    word_to_features(word) -> list
+
+    Give a word of any form, e.g. take, took, taken, taking, this function will
+    return a list of all possible features of this word. The return value is a
+    list containing all possibilities.
+    """
     if inited == False:
         raise KeyError("Initial file name not provided. Please run init() first.")
 
@@ -48,6 +55,13 @@ def init(morph,syntax,temp):
     # syntax is the path of syntax-coded.flat
     # temp is the path of templates.lex (there are two of them, both are OK)
     # All path can be absolute path or relative path
+    """
+    init(morph,syntax,temp) -> None
+
+    Given the three dictionary files, the init() will initialize the environment
+    for word_to_features() and other support functions to function. This should
+    be the first call before any other calls to word_to_features().
+    """
     global dicts
     fp = open(morph)
     s = fp.read()
@@ -69,6 +83,7 @@ def init(morph,syntax,temp):
     return
 
 def demo():
+    #init()
     r = word_to_features('schedules')
     for i in r:
         print '---------------- new -------------------'

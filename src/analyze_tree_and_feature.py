@@ -6,15 +6,11 @@ from nltk.featstruct import FeatStruct
 # the list of oprion, which will be processed in later phases
 def first_pass(s):
     """
-
     first_pass() -> list
 
     Given the raw string read from a grammar document, this
     function will split the options and TAG trees into a list.  
-    
     """
-
-    
     i = 0
     last_time = 0    # To record the position since the latest ')'
     stack = 0  # We use a simple stack to match brackets
@@ -43,16 +39,13 @@ def first_pass(s):
 
     return xtag_trees
 
-
 def second_pass(xtag_trees):
     """
-
     second_pass() -> list
 
     Given the result of first_pass(), this function will further
     split the options string into several small strings, each is started by
     a ':' and ended by the start of another option or by the end of the string.
-    
     """
     for entry in xtag_trees:
         options_str = entry[3]
@@ -109,13 +102,11 @@ def second_pass(xtag_trees):
 
 def third_pass(xtag_trees):
     """
-    
     third_pass() -> list
 
     Given the result of second_pass(), this function will extract
     the feature structure specifications into a separate list, and then extract
     RHS as well as LHS for further use.  
-
     """
     pattern = "UNIFICATION-EQUATIONS"
     pattern_len = len(pattern)
@@ -217,12 +208,10 @@ def add_two_feature(features,l_id,rhs,l_feature1,l_feature2 = None):
     
 def fourth_pass(xtag_trees):
     """
-
     fourth_pass() -> list
 
     Given the result of third_pass(), this function will make
     use of FeatStruct, and build a feature structure dictionary.  
-
     """
     for xtag_entry in xtag_trees:
         features =  {}
@@ -254,13 +243,11 @@ def fourth_pass(xtag_trees):
 
 def fifth_pass(xtag_trees):
     """
-
     fifth_pass() -> list
 
     Given the result of fourth_pass(), this function will continue
     to build the feature structure, and in this phase we must add all values
     even if they are not defined by the tree grammar.  
-    
     """
     for xtag_entry in xtag_trees:
         features = xtag_entry[4]
@@ -296,13 +283,11 @@ def fifth_pass(xtag_trees):
 
 def parse_feature(filename):
     """
-
     parse_feature() -> list
 
     Given the name of the file which contains the definition
     of several TAG trees, this function will return a data structure that
     describes those trees as well as options including feature structures.  
-
     """
     fp = open(filename)
     s = fp.read()
@@ -329,3 +314,5 @@ def debug(filename):
 
 if __name__ == '__main__':
     debug('lex.trees')
+else:
+    pass
