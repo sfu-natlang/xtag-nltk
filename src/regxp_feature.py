@@ -50,8 +50,14 @@ def match_feature(feature,regexp,operation=0):
                 new_feature[i] = val
                 count += 1
             elif operation == 1 and search_ret == None:
-                new_feature[i] = val
+                ret = match_feature(val,regexp,operation)
+                if ret != None:
+                    new_feature[i] = ret
+                else:
+                    new_feature[i] = FeatStruct()
                 count += 1
+            elif operation == 1 and search_ret != None:
+                pass
             else:
                 ret = match_feature(val,regexp,operation)
                 #print ret,'\n'
@@ -59,33 +65,34 @@ def match_feature(feature,regexp,operation=0):
                     new_feature[i] = ret
                     count += 1
 
-
     #print new_feature,'\n'
     if count == 0:
         return None
     else:
         return new_feature
 
-#def debug():
-#    a = FeatStruct()
-#    b = FeatStruct()
-#    c = FeatStruct()
-#    d = FeatStruct()
-#    a['__value__'] = 'OKWANGZiqi'
-#    b['__value__'] = 'WANGYunpeng'
-#    c['__value__'] = "WWA!!!"
-#    d['__value__'] = 'WZQ(*&YTG'
-#    e = FeatStruct()
-#    e['first'] = a
-#    e['second'] = b
-#    e['third'] = c
-#    e['fourth'] = d
-#    f = FeatStruct()
-#    f['nested'] = e
-#    g = FeatStruct()
-#    g['__value__'] = "WAAAAAAAAH!"
-#    f['single'] = g    
-#    print remove_value_tag(match_feature(f,'i',0))
+def debug():
+    a = FeatStruct()
+    b = FeatStruct()
+    c = FeatStruct()
+    d = FeatStruct()
+    a['__value__'] = 'OKWANGZiqi'
+    b['__value__'] = 'WANGYunpeng'
+    c['__value__'] = "WWA!!!"
+    d['__value__'] = 'WZQ(*&YTG'
+    e = FeatStruct()
+    e['first'] = a
+    e['second'] = b
+    e['third'] = c
+    e['fourth'] = d
+    f = FeatStruct()
+    f['nested'] = e
+    g = FeatStruct()
+    g['__value__'] = "WAAAAAAAAH!"
+    f['single'] = g
+    print f
+    print ''
+    print remove_value_tag(match_feature(f,'i',1))
 
-#if __name__ == "__main__":
-#    debug()
+if __name__ == "__main__":
+    debug()

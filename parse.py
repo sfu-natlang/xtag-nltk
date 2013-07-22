@@ -907,8 +907,10 @@ def match_feature(feature,regexp,operation=0):
                 if ret != None:
                     new_feature[i] = ret
                 else:
-                    new_feature[i] = val
+                    new_feature[i] = FeatStruct()
                 count += 1
+            elif operation == 1 and search_ret != None:
+                pass
             else:
                 ret = match_feature(val,regexp,operation)
                 #print ret,'\n'
