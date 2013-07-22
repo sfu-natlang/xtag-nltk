@@ -64,7 +64,6 @@ def add_new_name(s,index):
         raise TypeError('add_new_name: Value must be wrapped with "')
     else:
         catalog_name[token_1[0]] = token_2[0][1:-1]
-        
     return (token_2[0][1:-1],index)
 
 def generate_string(s,index):
@@ -149,7 +148,6 @@ def parse_option(s,index):
         index = t[1]
         exp = parse_expression(s,index)
         index = exp[1]
-
     return [("optn",option_name,exp[0]),index]
 
 def parse_option_set(s,index):
@@ -217,7 +215,6 @@ def parse_language(s,index):
     else:
         return [("lang",language_name,option_set),token[1]]
     
-
 def parse_catalog(s,index):
     # This function parses the catalog repersented in a string. The return value
     # is a node of the tree whose content is just the options and other
@@ -266,11 +263,12 @@ def print_tree(node,table=0):
     elif node[0] == 'expr':
         for value in node[1]:
             print '    ' * table + value
-        
+    return
 
 def get_catalog(filename):
     # Given the filename, this function is used to get the parse tree from
-    # that file.
+    # that file. Only call that once, and the parse tree can be used multiple
+    # times to get options.
     fp = open(filename)
     s = fp.read()
     fp.close()
@@ -279,6 +277,9 @@ def get_catalog(filename):
     return cata
     #print_tree(cata,0)
 
+# These three is used to extract a certain sub-tree from the parse tree
+# and is used during recursion, so don't modify or read the content of
+# these variables, the values are not defined.
 file_list = None
 suffix = None
 path = None
@@ -286,6 +287,7 @@ path = None
 def get_file_tree(node,type_string):
     # Given the root node of the parse tree, and the file type
     # you want to get, this function will return a list containing
+    # the file names as well as the absolute path of the files.
     global file_list,suffix,path
     ret = None
     if node[0] == "top":
@@ -310,7 +312,6 @@ def get_file_tree(node,type_string):
         pass
     else:
         raise TypeError("Unknown keyword in the catalog: " + node[0])
-    
     return ret
 
 def get_file_list(node,type_string):
