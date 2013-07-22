@@ -978,6 +978,7 @@ def init(morph,syntax,temp):
     be the first call before any other calls to word_to_features().
     """
     global dicts
+    global inited
     fp = open(morph)
     s = fp.read()
     morph_dict = analyze_morph(s)
