@@ -1,18 +1,16 @@
 
-# The return value is a dictionary using words in the sentence as index. The
-# entry is a list, the element of which is a tuple. The first element of the
-# tuple is the lexicon, the second element of the tuple is the type of this lex,
-# and the third element of the tuple is again a list 
-# the entries of which are strings indicating the features.
 def analyze_morph(s):
+    # The return value is a dictionary using words in the sentence as index. The
+    # entry is a list, the element of which is a tuple. The first element of the
+    # tuple is the lexicon, the second element of the tuple is the type of this lex,
+    # and the third element of the tuple is again a list 
+    # the entries of which are strings indicating the features.
     """
-
     analyze_morph(string) -> dictionary
     
     This function accepts input as a string read form file 'morph_english.flat'
     which contains the morphology information of XTAG system. The output is a
     dictionary using a single word as index and returns the morphology entry.
-    
     """
     morph = {}
     lines = s.splitlines()
@@ -43,12 +41,12 @@ def analyze_morph(s):
         
     return morph
 
-def debug(filename):
-    fp = open(filename)
-    s = fp.read()
-    fp.close()
-    dic = analyze_morph(s)
-    print dic
+#def debug(filename):
+#    fp = open(filename)
+#    s = fp.read()
+#    fp.close()
+#    dic = analyze_morph(s)
+#    print dic
 
-if __name__ == '__main__':
-    debug('trunc_morph_test.flat')
+#if __name__ == '__main__':
+#    debug('trunc_morph_test.flat')

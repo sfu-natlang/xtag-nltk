@@ -82,28 +82,28 @@ def init(morph,syntax,temp):
     inited = True
     return
 
-def demo():
-    #init()
-    r = word_to_features('schedules')
-    for i in r:
-        print '---------------- new -------------------'
-        print '================ i[4] =================='
-        for j in i[4]:
-            print j
-        print '================ i[3] =================='
-        for j in i[3]:
-            print j
-        print '================ i[2] =================='
-        for j in i[2]:
-            print j
-        print '================ i[1] =================='
-        for j in i[1]:
-            print j
-        print '================ i[0] =================='
-        for j in i[0]:
-            print j
+#def demo():
+#    init()
+#    r = word_to_features('schedules')
+#    for i in r:
+#        print '---------------- new -------------------'
+#        print '================ i[4] =================='
+#        for j in i[4]:
+#            print j
+#        print '================ i[3] =================='
+#        for j in i[3]:
+#            print j
+#        print '================ i[2] =================='
+#        for j in i[2]:
+#            print j
+#        print '================ i[1] =================='
+#        for j in i[1]:
+#            print j
+#        print '================ i[0] =================='
+#        for j in i[0]:
+#            print j
 
-if __name__ == '__main__':
-    demo()
-else:
-    pass
+#if __name__ == '__main__':
+#    demo()
+#else:
+#    pass

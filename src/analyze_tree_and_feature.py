@@ -99,7 +99,6 @@ def second_pass(xtag_trees):
         
     return xtag_trees
 
-
 def third_pass(xtag_trees):
     """
     third_pass() -> list
@@ -184,7 +183,6 @@ def third_pass(xtag_trees):
 #        
 #    return trees
 ############################################################
-
 
 def add_two_feature(features,l_id,rhs,l_feature1,l_feature2 = None):
     if l_feature2 == None:
@@ -280,7 +278,6 @@ def fifth_pass(xtag_trees):
 
     return xtag_trees
 
-
 def parse_feature(filename):
     """
     parse_feature() -> list
@@ -295,24 +292,23 @@ def parse_feature(filename):
 
     return fifth_pass(fourth_pass(third_pass(second_pass(first_pass))))
 
+#def debug(filename):
+#    fp = open(filename)
+#    s = fp.read()
+#    fp.close()
+#    t = fifth_pass(fourth_pass(third_pass(second_pass(first_pass(s)))))
 
-def debug(filename):
-    fp = open(filename)
-    s = fp.read()
-    fp.close()
-    t = fifth_pass(fourth_pass(third_pass(second_pass(first_pass(s)))))
-
-    l = len(t)
-    t[l - 3][4]['D.t']['wh']['__value__'] = 'wangziqi'
+#    l = len(t)
+#    t[l - 3][4]['D.t']['wh']['__value__'] = 'wangziqi'
     
-    for i in t:
-        for j in i[4].keys():
-            print j
-            print i[4][j]
-            print "-----------------"
-        print "================="
+#    for i in t:
+#        for j in i[4].keys():
+#            print j
+#            print i[4][j]
+#            print "-----------------"
+#        print "================="
 
-if __name__ == '__main__':
-    debug('lex.trees')
-else:
-    pass
+#if __name__ == '__main__':
+#    debug('lex.trees')
+#else:
+#    pass

@@ -3,11 +3,11 @@ def check_index(index):
     if index == -1:
         raise TypeError('Invalid input line.')
 
-# This function will extract next pair of <<XXXX>>OOOOO from the input string
-# s with a starting index = start. The return value is a tuple (entry,value,index)
-# The 3rd value is the next un-read position, could be -1 if there is no more
-# input
 def get_next_pair(s,start):
+    # This function will extract next pair of <<XXXX>>OOOOO from the input string
+    # s with a starting index = start. The return value is a tuple (entry,value,index)
+    # The 3rd value is the next un-read position, could be -1 if there is no more
+    # input
     index_start = s.find('<<',start)
     if index_start == -1:
         return (None,None,-1)
@@ -25,15 +25,15 @@ def get_next_pair(s,start):
 
     return (entry,value,index_return)
 
-# This function returns a dictionary, the index is exactly the <<INDEX>>
-# entry in the syntax file. Each keyword will fetch a list, the element of
-# which is just the lines with the same <<INDEX>>. Each list has four components
-# The first is called entry_list, the element of which is tuples with <<ENTRY>>
-# and <<POS>> being the 1st and 2nd element. The 2nd list is called tree_list
-# the element of which is tree name. The 3rd list is called family_list
-# the element of which is family name. The fourth list is called feature_list
-# the element of which is feature name.
 def analyze_syntax(s):
+    # This function returns a dictionary, the index is exactly the <<INDEX>>
+    # entry in the syntax file. Each keyword will fetch a list, the element of
+    # which is just the lines with the same <<INDEX>>. Each list has four components
+    # The first is called entry_list, the element of which is tuples with <<ENTRY>>
+    # and <<POS>> being the 1st and 2nd element. The 2nd list is called tree_list
+    # the element of which is tree name. The 3rd list is called family_list
+    # the element of which is family name. The fourth list is called feature_list
+    # the element of which is feature name.
     lines = s.splitlines()
     tokens = {}
     for l in lines:
@@ -83,14 +83,13 @@ def analyze_syntax(s):
             tokens[line_name] = [temp]
     return tokens
 
-
-def debug(filename):
-    fp = open(filename)
-    s = fp.read()
-    fp.close()
-    print analyze_syntax(s)['Asian']
+#def debug(filename):
+#    fp = open(filename)
+#    s = fp.read()
+#    fp.close()
+#    print analyze_syntax(s)['Asian']
     
 
-if __name__ == '__main__':
-    debug('syntax-coded.flat')
+#if __name__ == '__main__':
+#    debug('syntax-coded.flat')
     

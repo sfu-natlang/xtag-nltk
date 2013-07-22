@@ -377,13 +377,13 @@ def get_option_value(node,opt_name):
         pass
     return None
 
-def demo():
-    cata = get_catalog('../../xtag-english-grammar/english.gram')
-    print get_file_list(cata,'tree-files')
-    print ''
-    print get_option_value(cata,'pretty-name')
+#def demo():
+#    cata = get_catalog('../../xtag-english-grammar/english.gram')
+#    print get_file_list(cata,'tree-files')
+#    print ''
+#    print get_option_value(cata,'pretty-name')
 
-if __name__ == "__main__":
-    demo()
-else:
-    pass
+#if __name__ == "__main__":
+#    demo()
+#else:
+#    pass

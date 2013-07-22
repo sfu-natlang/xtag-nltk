@@ -1,9 +1,9 @@
 from nltk.featstruct import FeatStruct
 
-# This function makes a feature structure using a list of lhs which are nested
-# e.g. if lhs = ['a','b','c','d'] and rhs = 'wzq' then the
-# fs shoule be [a = [b = [c = [d = 'wzq']]]]
 def make_fs(lhs,rhs):
+    # This function makes a feature structure using a list of lhs which are nested
+    # e.g. if lhs = ['a','b','c','d'] and rhs = 'wzq' then the
+    # fs shoule be [a = [b = [c = [d = 'wzq']]]]
     new_fs = FeatStruct()
     
     if len(lhs) == 1:
@@ -16,23 +16,22 @@ def make_fs(lhs,rhs):
         
     return new_fs
 
-# This function merges fs2 into fs1, changing fs1 in-place
-# It's a cheaper and faster alternative of unify(), which will check
-# all the similarities and differences between fs1 and fs2. But this one
-# just assumes that fs2 and fs1 does not have any entries in common
-# NOTICE: In Templates.lex we cannot guarantee there is no overlap
-# so only use this function when it IS clear.
 def merge_fs(fs1,fs2):
+    # This function merges fs2 into fs1, changing fs1 in-place
+    # It's a cheaper and faster alternative of unify(), which will check
+    # all the similarities and differences between fs1 and fs2. But this one
+    # just assumes that fs2 and fs1 does not have any entries in common
+    # NOTICE: In Templates.lex we cannot guarantee there is no overlap
+    # so only use this function when it IS clear.
     for k in fs2.keys():
         fs1[k] = fs2[k]
 
-
-# The return value of this function is a tuple. The first element of the tuple is a dictionary
-# using identifiers from morph.flat, and the entries are feature structures
-# with proper values set. The second element is a dictionary using keys from
-# syntax-coded.flat, which will return a list containing all feature structures
-# from a given identifier.
 def analyze_template(s):
+    # The return value of this function is a tuple. The first element of the tuple is a dictionary
+    # using identifiers from morph.flat, and the entries are feature structures
+    # with proper values set. The second element is a dictionary using keys from
+    # syntax-coded.flat, which will return a list containing all feature structures
+    # from a given identifier.
     lines = s.splitlines()
     feature_list = {}
     feature_list2 = {}
@@ -106,11 +105,11 @@ def analyze_template(s):
             raise TypeError('Cannot recognize line: %s.' % (l))
     return (feature_list,feature_list2)
         
-def debug(filename):
-    fp = open(filename)
-    s = fp.read()
-    fp.close()
-    analyze_template(s)
+#def debug(filename):
+#   fp = open(filename)
+#    s = fp.read()
+#    fp.close()
+#    analyze_template(s)
 
-if __name__ == '__main__':
-    debug('templates.lex')
+#if __name__ == '__main__':
+#    debug('templates.lex')
