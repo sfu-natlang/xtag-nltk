@@ -903,7 +903,11 @@ def match_feature(feature,regexp,operation=0):
                 new_feature[i] = val
                 count += 1
             elif operation == 1 and search_ret == None:
-                new_feature[i] = val
+                ret = match_feature(val,regexp,operation)
+                if ret != None:
+                    new_feature[i] = ret
+                else:
+                    new_feature[i] = val
                 count += 1
             else:
                 ret = match_feature(val,regexp,operation)
@@ -911,7 +915,6 @@ def match_feature(feature,regexp,operation=0):
                 if ret != None:
                     new_feature[i] = ret
                     count += 1
-
 
     #print new_feature,'\n'
     if count == 0:
@@ -980,7 +983,6 @@ def init(morph,syntax,temp):
     """
     global inited
     global dicts
-    global inited
     fp = open(morph)
     s = fp.read()
     morph_dict = analyze_morph(s)
