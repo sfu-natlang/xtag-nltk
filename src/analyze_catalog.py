@@ -2,6 +2,13 @@ def get_next_token(s,index,length=None):
     # This function is used by the LL parser to extract out tokens from the input
     # stream, which is not a general one, but is designed and simplified just
     # for use in the XTAG case. DO NOT USE IT AS A PUBLIC FUNCTION.
+    # The return value is a tuple, the first element is the token itself, and
+    # if we have reached the end of the string, this value should be a None
+    # instead of some certain string. The second element of the tuple is the
+    # next character index, after extracting the token, and if the first
+    # element is None, the second element is the index that we passed in.
+    # i.e. no change at all, this is designed to prevent repeated invalid call.
+    #################
     # state = 0: outside anything
     # state = 1: inside ""
     # state = 2: inside identifier
@@ -14,36 +21,49 @@ def get_next_token(s,index,length=None):
     if length == None:
         l = len(s)
     else:
-        l = length
-        
+        l = length        
     while True:
+        # If we have already reached the end of the string, index >= l (length)
         if state == 0 and index >= l:
             return (None,index)
+        # Jump all space characters
         elif state == 0 and s[index].isspace():
             index += 1
+        # Single '(' or ')' or ':' can itself form a token without any indicators
         elif state == 0 and (s[index] == '(' or s[index] == ')' or s[index] == ':'):
             return (s[index],index + 1)
+        # If we have seen a '"' then enter a state that will accept anything
+        # until another '"', this is used to extract out strings.
         elif state == 0 and s[index] == '"':
             start = index
             state = 1
             index += 1
+        # See above.
         elif state == 1 and s[index] == '"':
             end = index
             state = 0
             return (s[start:end + 1],index + 1)
+        # all numbers and characters as well as "'" without any space in the
+        # middle will be treated in a whole.
         elif state == 0 and (s[index].isalnum() or s[index] == "'"):
             state = 2
             start = index
             index += 1
+        # Any space, ')', '(' will terminate an identifier in state 2.
         elif state == 2 and (s[index].isspace() or s[index] == ')' or s[index] == '('):
             end = index - 1
             return (s[start:end + 1],index)
+        # Skip all comments until the end of line (indicated by a '\n')
         elif state == 0 and (s[index] == ';' or s[index] == '#'):
             state = 3
             index += 1
+        # See above
         elif state == 3 and s[index] == '\n':
             state = 0
             index += 1
+        # NOTICE: this is not a exception, many branches above will rely on this
+        # else statement, for it is the default processor for many other generic cases
+        # not listed above.
         else:
             index += 1
 
@@ -326,9 +346,42 @@ def get_file_list(node,type_string):
         file_list_full.append(i + '.' + suffix_str)
     return (file_list_full,path[:]) # We must copy the path string
 
+opt_value = None
+
+def get_option_value(node,opt_name):
+    # This function is used to print a parse tree in a pre-order manner
+    # node should be the root or any sub-tree, and table should not be used
+    if node[0] == "top":
+        for lang in node[1]:
+            ret = get_option_value(lang,opt_name)
+            if ret != None:
+                return ret
+    elif node[0] == 'lang':
+        for opts in node[2]:
+            ret = get_option_value(opts,opt_name)
+            if ret != None:
+                return ret
+    elif node[0] == "opts":
+        for optn in node[1]:
+            ret = get_option_value(optn,opt_name)
+            if ret != None:
+                return ret
+    elif node[0] == 'optn':
+        if node[1] == opt_name:
+            return node[2][1][0]
+        else:
+            ret = get_option_value(node[2],opt_name)
+            if ret != None:
+                return ret
+    elif node[0] == 'expr':
+        pass
+    return None
+
 def demo():
     cata = get_catalog('../../xtag-english-grammar/english.gram')
     print get_file_list(cata,'tree-files')
+    print ''
+    print get_option_value(cata,'pretty-name')
 
 if __name__ == "__main__":
     demo()
