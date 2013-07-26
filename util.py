@@ -271,6 +271,7 @@ class TAGTreeSetView(object):
         v = StringVar()
         w = Label(frame, text='Regexp:')
         self._e = Entry(frame, textvariable=v)
+        self._e.bind("<Return>", self.return_pressed)
         self._show_fs = True
         show_fs_button = Button(frame, text="Show Features", command=self.show_fs)
         highlight_button = Button(frame, text="Highlight", command=self.highlight)
@@ -310,8 +311,8 @@ class TAGTreeSetView(object):
         self._tagview = ttk.Treeview(self._frame, columns=self.cols, displaycolumns='',
                                      yscrollcommand=lambda f, l:autoscroll(vsb, f, l),
                                      xscrollcommand=lambda f, l:autoscroll(hsb, f, l))
-        ysb = ttk.Scrollbar(self._frame, orient=VERTICAL, command= self._tagview.yview)
-        xsb = ttk.Scrollbar(self._frame, orient=HORIZONTAL, command= self._tagview.xview)
+        ysb = ttk.Scrollbar(self._frame, orient=VERTICAL, command=self._tagview.yview)
+        xsb = ttk.Scrollbar(self._frame, orient=HORIZONTAL, command=self._tagview.xview)
         self._tagview['yscroll'] = ysb.set
         self._tagview['xscroll'] = xsb.set
         self._tagview.bind('<<TreeviewSelect>>', self.display)
@@ -328,6 +329,13 @@ class TAGTreeSetView(object):
         self._tw = TAGTreeView((True, self._top), None)
         self._tw.pack(expand=1, fill='both', side = LEFT)
 
+    def return_pressed(self, event):
+        words = self._e.get().split()
+        if len(words) == 0:
+            self._show_fs = False
+            self.show_fs()
+        return
+    
     def pack(self):
         """
         Pack the canvas frame of ``TAGTreeView``.
@@ -369,7 +377,8 @@ class TAGTreeSetView(object):
         """
         if not trees:
             return
-        for t in trees:
+        #print sorted(trees.keys())
+        for t in sorted(trees.keys()):
             node = parent
             parent_path = self._tagview.set(parent, "fullpath")
             path = parent_path + '/' + t
