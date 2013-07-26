@@ -28,6 +28,7 @@ class LexView(object):
 
         v = StringVar()
         self._e = Entry(frame, textvariable=v)
+        self._e.bind("<Return>", self.return_pressed)
         all_button = Button(frame, text='Show All', command=self.show_all)
         button = Button(frame, text="Search", command=self.search)
         self._e.pack(expand=1, fill='both', side=LEFT)
@@ -40,6 +41,13 @@ class LexView(object):
         self._treeview = TAGTreeSetView(self._tagset, self._top)
         self._treeview.pack()
         self._count = {}
+
+    def return_pressed(self, event):
+        words = self._e.get().split()
+        if len(words) == 0:
+            self.show_all()
+            return
+        self.search()
 
     def resize(self, *e):
         """
@@ -57,13 +65,17 @@ class LexView(object):
         return
     
     def search(self):
+        words = self._e.get().split()
+        if len(words) == 0:
+        #    self.show_all()
+            return
         self._tagset = TAGTreeSet()
         self._treeview.clear()
-        words = self._e.get().split()
         for word in words:
             self._tagset[word] = TAGTreeSet()
             fset = self._tagset[word]
             lex_list = word_to_features(word)
+            print 'lex', lex_list
             for morph in lex_list:
                 print morph
                 print 111111
