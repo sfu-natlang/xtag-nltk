@@ -357,6 +357,19 @@ def get_option_value(node,opt_name):
     get_option_value(node,opt_name) -> string
 
     Given the catalog tree and the option name, this fucntion will output the
+    option value, which is a string.
+
+    The option can be any options existing in the parse tree, but if multiple
+    same option value exists, this function will return the one that emerges
+    first in a pre-order traverse.
+
+    If this function fails, i.e. no option with name opt_name is found, then
+    it will return a None. So to detect None return value is necessary.
+
+    Example:
+    get_option_value(cata,start-feature)
+    Return:
+    <mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil
     """
     if node[0] == "top":
         for lang in node[1]:
@@ -439,7 +452,7 @@ def add_new_fs(fs,lhs,rhs):
     [    [b = [c = [d = [e = [__value__ = 'wzq']]]]
     """
     if len(lhs) == 1:
-        inner = FeatStruct()1. WICS Let’s Talk session: How to Succeed in Technology
+        inner = FeatStruct()
 
 
         inner['__value__'] = rhs
@@ -931,7 +944,7 @@ def fifth_pass(xtag_trees):
                 l_id = lhs[:l_separator]
                 r_id = rhs[:r_separator]
                 r_feature = rhs[r_separator + 2:-1]
-                print r_feature
+                #print r_feature
                 l_space = lhs.find(' ')
 
                 if not features.has_key(r_id): # Make sure features[r_id] exists
@@ -1064,8 +1077,8 @@ def word_to_features(word):
             #features.append(dicts[2][0][f])
 
         for i in temp_feature:
-            print entry[0], " ",i[0][0][0]
-            print entry[1],"",i[0][0][1]
+            #print entry[0], " ",i[0][0][0]
+            #print entry[1],"",i[0][0][1]
             if i[0][0][0] == entry[0] and i[0][0][1] == entry[1]:
                 features = []
                 features2 = []
