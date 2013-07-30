@@ -273,16 +273,18 @@ class TAGTreeSetView(object):
         self._e = Entry(frame, textvariable=v)
         self._e.bind("<Return>", self.return_pressed)
         self._show_fs = True
-        show_fs_button = Button(frame, text="Show Features", command=self.show_fs)
+        self._show_fs_button = Button(frame, text="Hide Features", command=self.show_fs)
+        self._sfs_button = Button(frame, text="Add Start Features", command=self._start_fs)
         highlight_button = Button(frame, text="Highlight", command=self.highlight)
         remove_button = Button(frame, text="Remove", command=self.remove)
         keep_button = Button(frame, text="Keep", command=self.keep)
-        show_fs_button.pack(side = LEFT)
-        w.pack(side = LEFT)
+        self._sfs_button.pack(side=LEFT)
+        self._show_fs_button.pack(side=LEFT)
+        w.pack(side=LEFT)
         self._e.pack(expand=1, fill='both', side = LEFT)
-        highlight_button.pack(side = RIGHT)
-        keep_button.pack(side = RIGHT)
-        remove_button.pack(side = RIGHT)
+        highlight_button.pack(side=RIGHT)
+        keep_button.pack(side=RIGHT)
+        remove_button.pack(side=RIGHT)
         
 
         statframe = Frame(self._top)
@@ -308,6 +310,7 @@ class TAGTreeSetView(object):
         self._frame.pack(fill='both', side = LEFT)
         
         self.cols = ('fullpath', 'type') 
+        self._add_fs = True
         self._tagview = ttk.Treeview(self._frame, columns=self.cols, displaycolumns='',
                                      yscrollcommand=lambda f, l:autoscroll(vsb, f, l),
                                      xscrollcommand=lambda f, l:autoscroll(hsb, f, l))
@@ -334,6 +337,39 @@ class TAGTreeSetView(object):
         if len(words) == 0:
             self._show_fs = False
             self.show_fs()
+        return
+
+    def _start_fs(self):
+        if self._trees.start_fs is None:
+            raise TypeError("Should set start feature for the TAG Trees First")
+        self._add_fs = not self._add_fs
+        self._old_sfs = self._trees.start_fs
+
+        #self._sfs = 
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        #if not isinstance(tree, type(self._trees)):
+        #    self._tw.redraw(self._show_fs, tree, keep=True, reg=self._e.get())
+        if self._add_fs:
+            self._sfs_button['text'] = 'Delete Start Features'
+            self.add_start_fs()
+        else:
+            self._sfs_button['text'] = 'Add Start Features'
+            self.del_start_fs()
+        return
+
+    def add_start_fs(self):
+        return
+
+    def del_start_fs(self):
+        self._old_sfs = None
         return
     
     def pack(self):
@@ -436,6 +472,11 @@ class TAGTreeSetView(object):
         """
         Display or hide the feature structure on the canvas.
         """
+        if self._show_fs:
+            self._show_fs_button['text'] = 'Show Feature'
+        else:
+            self._show_fs_button['text'] = 'Hide Feature'
+        self._e.delete(0, END)
         self._show_fs = not self._show_fs
         node = self._tagview.focus()
         path = self._tagview.set(node, "fullpath").split('/')
@@ -514,6 +555,7 @@ class TAGTreeSet(dict):
     def __init__(self, trees=None):
         dict.__init__(self)
         self.depth = 0
+        self.start_fs = None
         if trees:
             self.update(trees)
 
@@ -613,7 +655,10 @@ class TAGTreeSet(dict):
                     clone[tree] = self[tree].copy(False)
                 else:
                     clone += copy.copy(tree)
-            return clone     
+            return clone    
+
+    def set_start_fs(self, fs):
+        self.start_fs = fs 
 
 def _parse_tree_list(txt, fs):
     tree_list = _parse_brackets(txt)
@@ -836,6 +881,15 @@ class TAGTree(Tree):
                                         self._find_value(all_fs, id(temp[j]), f[keys][j])
                     self.set_all_fs(all_fs)
 
+    def unify(self, fs):
+        all_fs = self.get_all_fs()
+        temp = all_fs.unify(f)
+        if temp:
+            all_fs = temp
+        else:
+            raise NameError("Unify return None")
+        self.set_all_fs(all_fs)
+
     def _find_value(self, fs, idn, cfs):
         for i in fs:
             if len(fs[i].keys()) > 0 and fs[i].keys()[0] == '__value__':
@@ -1000,7 +1054,7 @@ def _fs_widget(feats, c, name, **attribs):
                 try:    
                     result += re.compile(r'((%s\s*)+)' % reg).sub(r'<h>\1<h>', i)
                 except re.error, e:
-                    print e
+                    #print e
                     widget = _parse_to_widget(match_str, c)
                     return BracketWidget(c, widget, color='black', width=1)
             widget = _parse_to_widget(result, c, True)
@@ -1142,8 +1196,10 @@ def demo():
     from util import parse_from_files
 
     cata = get_catalog('../xtag-english-grammar/english.gram')
-    t = parse_from_files(cata, 'tree-files')
+    t = TAGTreeSet()
+    t += parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
+    t.set_start_fs(sfs)
     t.view()
 
 
