@@ -326,7 +326,7 @@ class TAGTreeSetView(object):
         xsb.pack(fill='x', side='bottom')
 
         self._tagview.heading('#0', text='Trees', anchor=W)
-        self._tagview.column('#0', stretch=0, width=170)
+        self._tagview.column('#0', stretch=1, width=220)
 
         self._tagview.pack(expand=1, fill='both')
         self._tw = TAGTreeView((True, self._top), None)
@@ -342,10 +342,6 @@ class TAGTreeSetView(object):
     def _start_fs(self):
         if self._trees.start_fs is None:
             raise TypeError("Should set start feature for the TAG Trees First")
-        self._add_fs = not self._add_fs
-        self._old_sfs = self._trees.start_fs
-
-        #self._sfs = 
         node = self._tagview.focus()
         path = self._tagview.set(node, "fullpath").split('/')
         tree = self._trees
@@ -355,22 +351,30 @@ class TAGTreeSetView(object):
             else:
                 raise TypeError("%s: tree does not match"
                              % type(self).__name__)
-        #if not isinstance(tree, type(self._trees)):
-        #    self._tw.redraw(self._show_fs, tree, keep=True, reg=self._e.get())
         if self._add_fs:
             self._sfs_button['text'] = 'Delete Start Features'
-            self.add_start_fs()
+            self.add_start_fs(tree, self._trees.start_fs)
         else:
             self._sfs_button['text'] = 'Add Start Features'
-            self.del_start_fs()
-        return
+            self.del_start_fs(tree)
+        self._add_fs = not self._add_fs
 
-    def add_start_fs(self):
-        return
+    def add_start_fs(self, tree, start_fs):
+        root = tree.get_node_name() + '.t'
+        all_fs = tree.get_all_fs()
+        self._old_sfs = copy.deepcopy(all_fs[root])
+        for i in start_fs:
+            all_fs[root][i] = start_fs[i]
+        tree.set_all_fs(all_fs)
+        self._tw.redraw(self._show_fs, tree)
 
-    def del_start_fs(self):
+    def del_start_fs(self, tree):
+        root = tree.get_node_name() + '.t'
+        all_fs = tree.get_all_fs()
+        all_fs[root] = self._old_sfs
+        tree.set_all_fs(all_fs)
         self._old_sfs = None
-        return
+        self._tw.redraw(self._show_fs, tree)
     
     def pack(self):
         """
@@ -1197,9 +1201,8 @@ def demo():
 
     cata = get_catalog('../xtag-english-grammar/english.gram')
     sfs = get_start_feature(cata)
-    print sfs
-    t = TAGTreeSet()
-    t += parse_from_files(cata, 'tree-files')
+    #t = TAGTreeSet()
+    t = parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
     t.set_start_fs(sfs)
     t.view()

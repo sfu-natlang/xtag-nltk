@@ -32,6 +32,14 @@ class LexView(object):
         all_button = Button(frame, text='Show All', command=self.show_all)
         button = Button(frame, text="Search", command=self.search)
         self._e.pack(expand=1, fill='both', side=LEFT)
+
+        phrases = StringVar()
+        phrases.set("")
+        w = OptionMenu(frame, phrases, "one", "two", "three")
+        w.pack(side=RIGHT)
+        wl = Label(frame, text='multi-word:')
+        wl.pack(side=RIGHT)
+        
         all_button.pack(side=RIGHT)
         button.pack(side=RIGHT)
         frame.pack(fill='both')
@@ -150,6 +158,9 @@ class LexView(object):
             index = ''
             for i in morph[0]:
                 index = index + i[0] + '.' + i[1] + ' '
+            for i in morph[5][1]:
+                index = index + i + '_'
+            index = index[:-1]
             if index not in fset:
                 fset[index] = TAGTreeSet()
             sset = fset[index]
@@ -207,15 +218,19 @@ class LexView(object):
 
 def demo():
     cata = get_catalog('../xtag-english-grammar/english.gram')
+    sfs = get_start_feature(cata)
     t = parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
+    t.set_start_fs(sfs)
     morph = get_file_list(cata, 'morphology-files')
     syn = get_file_list(cata, 'lexicon-files')
     temp = get_file_list(cata, 'templates-files')
+    default = get_file_list(cata, 'syntax-default')
     morph_path = morph[1]+morph[0][0]
     syn_path = syn[1]+syn[0][0]
     temp_path = temp[1]+temp[0][0]
-    init(morph_path, syn_path, temp_path)
+    default_path = default[1]+default[0][0]
+    init(morph_path, syn_path, temp_path, default_path)
     viewer = LexView(t)
     viewer.mainloop()
 

@@ -25,7 +25,7 @@ def get_next_token(s,index,length=None):
     if length == None:
         l = len(s)
     else:
-        l = length        
+        l = length
     while True:
         # If we have already reached the end of the string, index >= l (length)
         if state == 0 and index >= l:
@@ -1136,6 +1136,7 @@ def init(morph,syntax,temp,default):
     s = fp.read()
     s += "\n" + default_syntax
     syntax_dict = analyze_syntax(s)
+    print default_syntax
     fp.close()
 
     fp = open(temp)
