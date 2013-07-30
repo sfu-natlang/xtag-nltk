@@ -255,6 +255,9 @@ def parse_catalog(s,index):
     #     node[2] ~ end = option entry values
     # node[0] == expr: An expression node
     #     node[1] ~ end = expression values
+    #
+    # DON'T DIRECTLY CALL THIS
+    #
     top = []
     while True:
         lang = parse_language(s,index)
@@ -309,9 +312,7 @@ suffix = None
 path = None
 
 def get_file_tree(node,type_string):
-    # Given the root node of the parse tree, and the file type
-    # you want to get, this function will return a list containing
-    # the file names as well as the absolute path of the files.
+    # DON'T DIRECTLY CALL THIS
     global file_list,suffix,path
     ret = None
     if node[0] == "top":
@@ -339,6 +340,9 @@ def get_file_tree(node,type_string):
     return ret
 
 def get_file_list(node,type_string):
+    # Given the root node of the parse tree, and the file type
+    # you want to get, this function will return a list containing
+    # the file names as well as the absolute path of the files.
     global file_list,suffix,path
     get_file_tree(node,type_string)
     file_list_full = []
@@ -1068,33 +1072,42 @@ def word_to_features(word):
     global dicts
     result = []
     #print dicts[0][word]
+    # If this word doesn't exist then we will just make a mark, and inside the loop
+    # we will just use the syntax from syndefaults.dat instead of from dicts[1]
     if not dicts[0].has_key(word):
-        return None
+        unexist = True
+        original_word = word
+        word = '%s'
+    else:
+        unexist = False
     for entry in dicts[0][word]:
         #print entry
-        temp_feature = dicts[1][entry[0]]
-        #for f in entry[2]:
-            #print dicts[2][0][f],'\n\n'
-            #features.append(dicts[2][0][f])
-
+        if unexist == False:
+            temp_feature = dicts[1][entry[0]]
+        else:
+            temp_feature = dicts[1]['%s']
+        
         for i in temp_feature:
             #print entry[0], " ",i[0][0][0]
             #print entry[1],"",i[0][0][1]
-            if i[0][0][0] == entry[0] and i[0][0][1] == entry[1]:
+            if (i[0][0][0] == entry[0] and i[0][0][1] == entry[1]) or unexist == True:
                 features = []
                 features2 = []
                 for j in i[3]:
                     features.append(dicts[2][1][j[1:]])
                 for j in entry[2]:
                     features2.append(dicts[2][0][j])
+
+                if unexist == True:
+                    new_i0 = [(original_word,i[0][0][1])]
+                else:
+                    new_i0 = i[0]
+                result.append((new_i0,i[1],i[2],features,features2,entry[1:]))
                 
-                result.append((i[0],i[1],i[2],features,features2,entry[1:]))
-                #print features2,'\n'
-    #print result
     return result
         #print dicts[1][entry[0]]
 
-def init(morph,syntax,temp):
+def init(morph,syntax,temp,default):
     # This function will initiate the environment where the XTAG grammar
     # system will run.
     # morph is the path of trunc_morph.flat
@@ -1115,8 +1128,13 @@ def init(morph,syntax,temp):
     morph_dict = analyze_morph(s)
     fp.close()
 
+    fp = open(default)
+    default_syntax = fp.read()
+    fp.close()
+
     fp = open(syntax)
     s = fp.read()
+    s += "\n" + default_syntax
     syntax_dict = analyze_syntax(s)
     fp.close()
 
@@ -1126,6 +1144,13 @@ def init(morph,syntax,temp):
     fp.close()
 
     dicts = (morph_dict,syntax_dict,template_dict)
+
+    #### Patch for using default grammar: add '%s' into dicts[0] ####
+    temp = dicts[1]['%s']
+    dicts[0]['%s'] = []
+    for i in temp:
+        dicts[0]['%s'].append(('%s',i[0][0][1],""))
+    ###
     inited = True
     return
 
@@ -1133,12 +1158,18 @@ def debug():
     morph = "../xtag-english-grammar/morphology/trunc_morph.flat"
     syntax = "../xtag-english-grammar/syntax/syntax-coded.flat"
     temp = "../xtag-english-grammar/syntax/templates.lex"
-    init(morph,syntax,temp)
+    default = "../xtag-english-grammar/syntax/syndefaults.dat"
+    init(morph,syntax,temp,default)
 
-    print word_to_features('schedule')
+    print word_to_features('wzqw')
+
 
 def debug_parse_feature_in_catalog():
     print parse_feature_in_catalog("<mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil")
+
+def debug_catalog():
+    cata = get_catalog('../xtag-english-grammar/english.gram')
+    print get_file_list(cata,"syntax-default")
 
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
