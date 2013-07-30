@@ -1196,6 +1196,8 @@ def demo():
     from util import parse_from_files
 
     cata = get_catalog('../xtag-english-grammar/english.gram')
+    sfs = get_start_feature(cata)
+    print sfs
     t = TAGTreeSet()
     t += parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
