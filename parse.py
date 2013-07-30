@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from nltk.featstruct import FeatStruct
 import re
 
@@ -352,8 +353,11 @@ def get_file_list(node,type_string):
 opt_value = None
 
 def get_option_value(node,opt_name):
-    # This function is used to print a parse tree in a pre-order manner
-    # node should be the root or any sub-tree, and table should not be used
+    """
+    get_option_value(node,opt_name) -> string
+
+    Given the catalog tree and the option name, this fucntion will output the
+    """
     if node[0] == "top":
         for lang in node[1]:
             ret = get_option_value(lang,opt_name)
@@ -379,6 +383,137 @@ def get_option_value(node,opt_name):
     elif node[0] == 'expr':
         pass
     return None
+
+def make_fs(lhs,rhs):
+    # This function makes a feature structure using a list of lhs which are nested
+    # e.g. if lhs = ['a','b','c','d'] and rhs = 'wzq' then the
+    # fs shoule be [a = [b = [c = [d = 'wzq']]]]
+    """
+    make_fs(lhs,rhs) -> FeatStruct
+
+    Given the lhs list and rhs object, this fucntion will return a feature structure
+    using the parameters above. The lhs must be given as a list which contains
+    the left hand side tag in each level, and the rhs can be any type of objects
+    But the most commonly used is string object or another feature structure.
+
+    Also notice that this function will aotumatically add a "__value__" tag at
+    the last level, making it easier for other procedures in XTAG system
+
+    Example:
+    lhs = ['a','b','c','d']
+    rhs = 'wzq'
+    Then make_fs(lhs,rhs) will return
+    FeatStruct = [a = [b = [c = [d = [__value__ = 'wzq']]]]]
+    """
+    new_fs = FeatStruct()
+    
+    if len(lhs) == 1:
+        inner = FeatStruct()
+        inner['__value__'] = rhs
+        rhs = inner
+        new_fs[lhs[0]] = rhs
+    else:
+        new_fs[lhs[0]] = make_fs(lhs[1:],rhs)
+        
+    return new_fs
+
+def add_new_fs(fs,lhs,rhs):
+    """
+    add_new_fs(fs,lhs,rhs) -> None
+
+    This function will add the feature structure defined by lhs and rhs
+    into an existing feature fs. The lhs of the lowest level is defined
+    to be '__value__' to facilitate other procedures.
+
+    If any of the paths defined by lhs has already existed in fs, then
+    it will be merged into that existing path, instead of erasing the existing
+    one and make a new one, so it is safe to use this function to merge two
+    feature structures.
+
+    Example:
+    fs = [a = ['www']]
+    lhs = ['a','b','c','d','e']
+    rhs = 'wzq'
+    Result:
+    [a = ['www']                                  ]
+    [    [b = [c = [d = [e = [__value__ = 'wzq']]]]
+    """
+    if len(lhs) == 1:
+        inner = FeatStruct()1. WICS Let’s Talk session: How to Succeed in Technology
+
+
+        inner['__value__'] = rhs
+        rhs = inner
+        fs[lhs[0]] = rhs
+    else:
+        if fs.has_key(lhs[0]):
+            add_new_fs(fs[lhs[0]],lhs[1:],rhs)
+        else:
+            fs[lhs[0]] = FeatStruct()
+            add_new_fs(fs[lhs[0]],lhs[1:],rhs)
+
+def merge_fs(fs1,fs2):
+    # This function merges fs2 into fs1, changing fs1 in-place
+    # It's a cheaper and faster alternative of unify(), which will check
+    # all the similarities and differences between fs1 and fs2. But this one
+    # just assumes that fs2 and fs1 does not have any entries in common
+    # NOTICE: In Templates.lex we cannot guarantee there is no overlap
+    # so only use this function when it IS clear.
+    for k in fs2.keys():
+        fs1[k] = fs2[k]
+
+def parse_feature_in_catalog(s):
+    # This function parses the string in catalog file, i.e. english.gram
+    # with the option 'start-feature', into a FeatStruct. We MUST write
+    # separate parsers for different strings from different files, since
+    # these features are represented in different forms.
+    """
+    parse_feature_in_catalog(string) -> FeatStruct
+
+    Given the string, this function will return a feature structure parsed
+    from that string. The feature structure should be encoded like this:
+
+    <mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil
+    
+    All tokens shall be separated by a single space, no comma and period and
+    semicolon is used. This parses is designed specially for the string from
+    the catalog (i.e. english.gram) file, since there are multiple ways to
+    represent the FS in xtag grammar, so we need multiple parsers.
+    """
+    # token _list is a list of tuples, the element of which is the LHS and
+    # RHS of a feature structure definition, i.e. [('mode','ind/imp'),('comp','nil')]
+    token_list = []
+    while True:
+        equal_sign = s.find('=')
+        if equal_sign == -1:
+            break
+        # find between '=' and '<', which is the RHS if no "<LHS> = <RHS>"
+        # is used. If it is then we can know that the no-white string between
+        # '=' and '<' is an empty string.
+        angle_bracket = s.find('<',equal_sign)
+        if angle_bracket == -1:
+            rhs = s[equal_sign + 1:].strip()
+        else:
+            rhs = s[equal_sign + 1:angle_bracket].strip()
+            if rhs == '':
+                angle_bracket = s.find('<',angle_bracket + 1)
+                if angle_bracket == -1:
+                    rhs = s[equal_sign + 1:].strip()
+                else:
+                    rhs = s[equal_sign + 1:angle_bracket].strip()
+        lhs = s[:equal_sign].strip()[1:-1]
+        token_list.append((lhs,rhs))
+        s = s[angle_bracket:]
+
+    new_fs = FeatStruct()
+    for token in token_list:
+        add_new_fs(new_fs,token[0].split(),token[1])
+
+    return new_fs
+
+def get_start_feature(node):
+    s = get_option_value(node,'start-feature')
+    return parse_feature_in_catalog(s)
 
 def analyze_morph(s):
     # The return value is a dictionary using words in the sentence as index. The
@@ -505,32 +640,6 @@ def analyze_syntax(s):
         else:
             tokens[line_name] = [temp]
     return tokens
-
-def make_fs(lhs,rhs):
-    # This function makes a feature structure using a list of lhs which are nested
-    # e.g. if lhs = ['a','b','c','d'] and rhs = 'wzq' then the
-    # fs shoule be [a = [b = [c = [d = 'wzq']]]]
-    new_fs = FeatStruct()
-    
-    if len(lhs) == 1:
-        inner = FeatStruct()
-        inner['__value__'] = rhs
-        rhs = inner
-        new_fs[lhs[0]] = rhs
-    else:
-        new_fs[lhs[0]] = make_fs(lhs[1:],rhs)
-        
-    return new_fs
-
-def merge_fs(fs1,fs2):
-    # This function merges fs2 into fs1, changing fs1 in-place
-    # It's a cheaper and faster alternative of unify(), which will check
-    # all the similarities and differences between fs1 and fs2. But this one
-    # just assumes that fs2 and fs1 does not have any entries in common
-    # NOTICE: In Templates.lex we cannot guarantee there is no overlap
-    # so only use this function when it IS clear.
-    for k in fs2.keys():
-        fs1[k] = fs2[k]
 
 def analyze_template(s):
     # The return value of this function is a tuple. The first element of the tuple is a dictionary
@@ -948,7 +1057,6 @@ def word_to_features(word):
     #print dicts[0][word]
     if not dicts[0].has_key(word):
         return None
-    
     for entry in dicts[0][word]:
         temp_feature = dicts[1][entry[0]]
         #for f in entry[2]:
@@ -956,6 +1064,8 @@ def word_to_features(word):
             #features.append(dicts[2][0][f])
 
         for i in temp_feature:
+            print entry[0], " ",i[0][0][0]
+            print entry[1],"",i[0][0][1]
             if i[0][0][0] == entry[0] and i[0][0][1] == entry[1]:
                 features = []
                 features2 = []
@@ -1003,3 +1113,17 @@ def init(morph,syntax,temp):
     dicts = (morph_dict,syntax_dict,template_dict)
     inited = True
     return
+
+def debug():
+    morph = "../xtag-english-grammar/morphology/trunc_morph.flat"
+    syntax = "../xtag-english-grammar/syntax/syntax-coded.flat"
+    temp = "../xtag-english-grammar/syntax/templates.lex"
+    init(morph,syntax,temp)
+
+    print word_to_features('above')
+
+def debug_parse_feature_in_catalog():
+    print parse_feature_in_catalog("<mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil")
+
+if __name__ == "__main__":
+    debug_parse_feature_in_catalog()
