@@ -1071,6 +1071,7 @@ def word_to_features(word):
     if not dicts[0].has_key(word):
         return None
     for entry in dicts[0][word]:
+        #print entry
         temp_feature = dicts[1][entry[0]]
         #for f in entry[2]:
             #print dicts[2][0][f],'\n\n'
@@ -1087,8 +1088,9 @@ def word_to_features(word):
                 for j in entry[2]:
                     features2.append(dicts[2][0][j])
                 
-                result.append((i[0],i[1],i[2],features,features2))
+                result.append((i[0],i[1],i[2],features,features2,entry[1:]))
                 #print features2,'\n'
+    #print result
     return result
         #print dicts[1][entry[0]]
 
@@ -1133,10 +1135,11 @@ def debug():
     temp = "../xtag-english-grammar/syntax/templates.lex"
     init(morph,syntax,temp)
 
-    print word_to_features('above')
+    print word_to_features('schedule')
 
 def debug_parse_feature_in_catalog():
     print parse_feature_in_catalog("<mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil")
 
 if __name__ == "__main__":
-    debug_parse_feature_in_catalog()
+    #debug_parse_feature_in_catalog()
+    debug()
