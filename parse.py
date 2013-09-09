@@ -452,7 +452,7 @@ def add_new_fs(fs,lhs,rhs):
     lhs = ['a','b','c','d','e']
     rhs = 'wzq'
     Result:
-    [a = ['www']                                  ]
+    [a = [['www']                                 ]
     [    [b = [c = [d = [e = [__value__ = 'wzq']]]]
     """
     if len(lhs) == 1:
@@ -460,8 +460,7 @@ def add_new_fs(fs,lhs,rhs):
 
 
         inner['__value__'] = rhs
-        rhs = inner
-        fs[lhs[0]] = rhs
+        fs[lhs[0]] = inner
     else:
         if fs.has_key(lhs[0]):
             add_new_fs(fs[lhs[0]],lhs[1:],rhs)
@@ -739,12 +738,12 @@ def analyze_template(s):
 
 
 
-# first_pass(s) will split the options and trees into a list, the first and second
+# analyze_tree_1(s) will split the options and trees into a list, the first and second
 # element of which is None, the third being the tree, and the fourth being
 # the list of oprion, which will be processed in later phases
 def first_pass(s):
     """
-    first_pass() -> list
+    analyze_tree_1() -> list
 
     Given the raw string read from a grammar document, this
     function will split the options and TAG trees into a list.  
@@ -779,9 +778,9 @@ def first_pass(s):
 
 def second_pass(xtag_trees):
     """
-    second_pass() -> list
+    analyze_tree_2() -> list
 
-    Given the result of first_pass(), this function will further
+    Given the result of analyze_tree_1(), this function will further
     split the options string into several small strings, each is started by
     a ':' and ended by the start of another option or by the end of the string.
     """
@@ -839,9 +838,9 @@ def second_pass(xtag_trees):
 
 def third_pass(xtag_trees):
     """
-    third_pass() -> list
+    analyze_tree_3() -> list
 
-    Given the result of second_pass(), this function will extract
+    Given the result of analyze_tree_2(), this function will extract
     the feature structure specifications into a separate list, and then extract
     RHS as well as LHS for further use.  
     """
@@ -873,31 +872,46 @@ def third_pass(xtag_trees):
         entry[1] = features
     return xtag_trees
 
-def add_two_feature(features,l_id,rhs,l_feature1,l_feature2 = None):
-    if l_feature2 == None:
-        if features.has_key(l_id):
-            features[l_id][l_feature1] = rhs
-        else:
-            features[l_id] = FeatStruct()
-            features[l_id][l_feature1] = rhs
-    else:
-        if features.has_key(l_id):
-            if features[l_id].has_key(l_feature1):
-                features[l_id][l_feature1][l_feature2] = rhs
-            else:
-                features[l_id][l_feature1] = FeatStruct()
-                features[l_id][l_feature1][l_feature2] = rhs
-        else:
-            features[l_id] = FeatStruct()
-            features[l_id][l_feature1] = FeatStruct()
-            features[l_id][l_feature1][l_feature2] = rhs
-    return
+# This function is replaced by add_new_fs(), please use the new one at any
+# situation!
+#
+#def add_two_feature(features,l_id,rhs,l_feature1,l_feature2 = None):
+#    if l_feature2 == None:
+#        if features.has_key(l_id):
+#            features[l_id][l_feature1] = rhs
+#        else:
+#            features[l_id] = FeatStruct()
+#            features[l_id][l_feature1] = rhs
+#    else:
+#        if features.has_key(l_id):
+#            if features[l_id].has_key(l_feature1):
+#                features[l_id][l_feature1][l_feature2] = rhs
+#            else:
+#                features[l_id][l_feature1] = FeatStruct()
+#                features[l_id][l_feature1][l_feature2] = rhs
+#        else:
+#            features[l_id] = FeatStruct()
+#            features[l_id][l_feature1] = FeatStruct()
+#            features[l_id][l_feature1][l_feature2] = rhs
+#    return
+
+# This function is specially designed for processing the format used in .trees files, given the string indicating
+# a path in the format like PP.b:<assign-case other> it will return a list [PP.b, assign-case, other]
+def get_path_list(s):
+    colon = s.find(':')
+    if colon == -1:
+        raise ValueError("No colon found in the path given.")
+    left = s[:colon]
+    right = s[colon + 2:-1]
+    right = [left] + right.split(' ')
+    return right
     
+
 def fourth_pass(xtag_trees):
     """
-    fourth_pass() -> list
+    analyze_tree_4() -> list
 
-    Given the result of third_pass(), this function will make
+    Given the result of analyze_tree_3(), this function will make
     use of FeatStruct, and build a feature structure dictionary.  
     """
     for xtag_entry in xtag_trees:
@@ -907,22 +921,30 @@ def fourth_pass(xtag_trees):
             rhs = feature_entry[1]
             l_separator = lhs.find(':')
             r_separator = rhs.find(':')
-
+            
+            # We do not process reference until the fifth pass
+            # and reference is identified by a ':' on RHS
             if r_separator == -1:
-                l_id = lhs[:l_separator]
-                l_space = lhs.find(' ')
-
-                feat_rhs = FeatStruct()
-                feat_rhs["__value__"] = rhs
-                #feat_rhs = rhs                
+                lhs_list = get_path_list(lhs)
+                add_new_fs(features,lhs_list,rhs)
                 
-                if(l_space == -1):
-                    l_feature = lhs[l_separator + 2:-1]
-                    add_two_feature(features,l_id,feat_rhs,l_feature)
-                else:
-                    l_feature1 = lhs[l_separator + 2:l_space]
-                    l_feature2 = lhs[l_space + 1:-1]
-                    add_two_feature(features,l_id,feat_rhs,l_feature1,l_feature2)
+                ###
+                # The code below is obsolete since we do not use add_two_features()
+                # any more. So please do not validate them. We use add_new_fs()
+                # instead!
+                #l_id = lhs[:l_separator]
+                #l_space = lhs.find(' ')
+
+                #feat_rhs = FeatStruct()
+                #feat_rhs["__value__"] = rhs                
+                
+                #if(l_space == -1):
+                #    l_feature = lhs[l_separator + 2:-1]
+                #    add_two_feature(features,l_id,feat_rhs,l_feature)
+                #else:
+                #    l_feature1 = lhs[l_separator + 2:l_space]
+                #    l_feature2 = lhs[l_space + 1:-1]
+                #    add_two_feature(features,l_id,feat_rhs,l_feature1,l_feature2)
 
         xtag_entry[4] = features
     
@@ -930,7 +952,7 @@ def fourth_pass(xtag_trees):
 
 def fifth_pass(xtag_trees):
     """
-    fifth_pass() -> list
+    analyze_tree_5() -> list
 
     Given the result of fourth_pass(), this function will continue
     to build the feature structure, and in this phase we must add all values
@@ -945,41 +967,51 @@ def fifth_pass(xtag_trees):
             r_separator = rhs.find(':')   
 
             if r_separator != -1:
-                l_id = lhs[:l_separator]
-                r_id = rhs[:r_separator]
-                r_feature = rhs[r_separator + 2:-1]
-                #print r_feature
-                l_space = lhs.find(' ')
+                lhs_list = get_path_list(lhs)
+                rhs_list = get_path_list(rhs)
+                rhs_value = features
+                for i in rhs_list:
+                    if not rhs_value.has_key(i):
+                        rhs_value = FeatStruct(__value__ = '')
+                        break
+                    else:
+                        rhs_value = rhs_value[i]
+                add_new_fs(features,lhs_list,rhs_value)
+                
+                #l_id = lhs[:l_separator]
+                #r_id = rhs[:r_separator]
+                #r_feature = rhs[r_separator + 2:-1]
+                #l_space = lhs.find(' ')
 
-                if not features.has_key(r_id): # Make sure features[r_id] exists
-                    features[r_id] = FeatStruct()
-                    features[r_id][r_feature] = FeatStruct(__value__ = '')
-                elif not features[r_id].has_key(r_feature): # Make sure features[r_id][r_feature] exists
-                    features[r_id][r_feature] = FeatStruct(__value__ = '')
+                #if not features.has_key(r_id): # Make sure features[r_id] exists
+                #    features[r_id] = FeatStruct()
+                #    features[r_id][r_feature] = FeatStruct(__value__ = '')
+                #elif not features[r_id].has_key(r_feature): # Make sure features[r_id][r_feature] exists
+                #    features[r_id][r_feature] = FeatStruct(__value__ = '')
 
-                if(l_space == -1):
-                    l_feature = lhs[l_separator + 2:-1]
-                    add_two_feature(features,l_id,features[r_id][r_feature],l_feature)
-                else:
-                    l_feature1 = lhs[l_separator + 2:l_space]
-                    l_feature2 = lhs[l_space + 1:-1]
-                    add_two_feature(features,l_id,features[r_id][r_feature],l_feature1,l_feature2)
+                #if(l_space == -1):
+                #    l_feature = lhs[l_separator + 2:-1]
+                #    add_two_feature(features,l_id,features[r_id][r_feature],l_feature)
+                #else:
+                #    l_feature1 = lhs[l_separator + 2:l_space]
+                #    l_feature2 = lhs[l_space + 1:-1]
+                #    add_two_feature(features,l_id,features[r_id][r_feature],l_feature1,l_feature2)
 
     return xtag_trees
 
-def parse_feature(filename):
-    """
-    parse_feature() -> list
+#def parse_feature(filename):
+#    """
+#    parse_feature() -> list
 
-    Given the name of the file which contains the definition
-    of several TAG trees, this function will return a data structure that
-    describes those trees as well as options including feature structures.  
-    """
-    fp = open(filename)
-    s = fp.read()
-    fp.close()
-
-    return fifth_pass(fourth_pass(third_pass(second_pass(first_pass))))
+#    Given the name of the file which contains the definition
+#    of several TAG trees, this function will return a data structure that
+#    describes those trees as well as options including feature structures.  
+#    """
+#    fp = open(filename)
+#    s = fp.read()
+#    fp.close()
+#
+#    return fifth_pass(fourth_pass(third_pass(second_pass(first_pass))))
 
 def remove_value_tag(feature):
     new_feature = FeatStruct()
@@ -1172,6 +1204,10 @@ def debug_catalog():
     cata = get_catalog('../xtag-english-grammar/english.gram')
     print get_file_list(cata,"syntax-default")
 
+def debug_get_path_list():
+    path = 'Ad_f.t:<compar other wzq>'
+    print get_path_list(path)
+
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
-    debug()
+    debug_get_path_list()
