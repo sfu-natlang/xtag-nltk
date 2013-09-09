@@ -610,29 +610,32 @@ def analyze_syntax(s):
     # the element of which is feature name.
     lines = s.splitlines()
     tokens = {}
+    # This dictionary is used to use the tree names to do reverse query to get the
+    # word or words
+    reverse_trees = {}
     for l in lines:
         if l == '':
             continue
-        start = 0
+        next_start = 0
         entry_list = []
         tree_list = []
         family_list = []
         feature_list = []
         line_name = 'noname'
         while True:
-            next_pair = get_next_pair(l,start)
-            start = next_pair[2]
+            next_pair = get_next_pair(l,next_start)
+            next_start = next_pair[2]
             entry = next_pair[0]
             value = next_pair[1]
-            if start == -1:
+            if next_start == -1:
                 break
             elif entry == 'INDEX':
                 line_name = value
             elif entry == 'ENTRY':
                 entry_name = value
-                next_pair = get_next_pair(l,start)
-                start = next_pair[2]
-                check_index(start)
+                next_pair = get_next_pair(l,next_start)
+                next_start = next_pair[2]
+                check_index(next_start)
                 entry = next_pair[0]
                 value = next_pair[1]
                 if entry != 'POS':
@@ -655,7 +658,17 @@ def analyze_syntax(s):
             tokens[line_name].append(temp)
         else:
             tokens[line_name] = [temp]
-    return tokens
+        # Next we will construct the reverse trees
+        for tree in tree_list:
+            if not reverse_trees.has_key(tree):
+                reverse_trees[tree] = []
+            reverse_trees[tree].append(entry_list[:])
+        for tree in family_list:
+            if not reverse_trees.has_key(tree):
+                reverse_trees[tree] = []
+            reverse_trees[tree].append(entry_list[:])
+            
+    return (tokens,reverse_trees)
 
 def analyze_template(s):
     # The return value of this function is a tuple. The first element of the tuple is a dictionary
@@ -1139,6 +1152,10 @@ def word_to_features(word):
     return result
         #print dicts[1][entry[0]]
 
+def tree_to_words(tree_name):
+    global dicts
+    return dicts[3][tree_name]
+
 def init(morph,syntax,temp,default):
     # This function will initiate the environment where the XTAG grammar
     # system will run.
@@ -1167,6 +1184,8 @@ def init(morph,syntax,temp,default):
     fp = open(syntax)
     s = fp.read()
     s += "\n" + default_syntax
+    # syntax_dict[0] is the dict for forward query, i.e. from word to trees and to feature structures
+    # and syntax_dict[1] is the dict for reverse query, i.e. from tree name to entries (word or words)
     syntax_dict = analyze_syntax(s)
     print default_syntax
     fp.close()
@@ -1176,7 +1195,7 @@ def init(morph,syntax,temp,default):
     template_dict = analyze_template(s)
     fp.close()
 
-    dicts = (morph_dict,syntax_dict,template_dict)
+    dicts = (morph_dict,syntax_dict[0],template_dict,syntax_dict[1])
 
     #### Patch for using default grammar: add '%s' into dicts[0] ####
     temp = dicts[1]['%s']
@@ -1194,8 +1213,8 @@ def debug():
     default = "../xtag-english-grammar/syntax/syndefaults.dat"
     init(morph,syntax,temp,default)
 
-    print word_to_features('wzqw')
-
+    #print word_to_features('wzqw')
+    print tree_to_words('Ts0Ax1')
 
 def debug_parse_feature_in_catalog():
     print parse_feature_in_catalog("<mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil")
@@ -1210,4 +1229,5 @@ def debug_get_path_list():
 
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
-    debug_get_path_list()
+    #debug_get_path_list()
+    debug()
