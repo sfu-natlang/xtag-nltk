@@ -1132,14 +1132,47 @@ def fifth_pass(xtag_trees):
 #
 #    return fifth_pass(fourth_pass(third_pass(second_pass(first_pass))))
 
-def remove_value_tag(feature):
+#def remove_value_tag(feature):
+#    new_feature = FeatStruct()
+#    for i in feature.keys():
+#        if feature[i].has_key('__value__'):
+#            new_feature[i] = feature[i]['__value__']
+#        else:
+#            new_feature[i] = remove_value_tag(feature[i])
+#    return new_feature
+
+def remove_or_tag(feature):
+    """
+    remove_or_tag(FeatStruct) -> FeatStruct
+
+    Given a feature structure in the internal repersentation of our xtag system
+    (i.e. each leaf is wrapped with an '__or_' + lhs feature struct), this function
+    will get rid of the __or_ tag, and produce a feature structure where no __or_
+    is there, and the multiple or relation is represented as [__or_1]/[__or_2]/ ...
+
+    e.g. for fs = [apple = [__or_a = 'a']]
+                  [        [__or_b = 'b']]
+                  [        [__or_c = 'c']]
+                  
+    remove_or_tag(fs) will return:
+
+      fs_return = [apple = 'a/b/c']
+    """
     new_feature = FeatStruct()
-    for i in feature.keys():
-        if feature[i].has_key('__value__'):
-            new_feature[i] = feature[i]['__value__']
+    for key in feature.keys():
+        entry = feature[key]
+        entry_keys = entry.keys()
+        if test_leaf(entry) == True:
+            str_or_removed = entry[entry_keys[0]]
+            if len(entry_keys) > 1:
+                for i in entry_keys[1:]:
+                    str_or_removed += '/' + entry[i]
+                    
+            new_feature[key] = str_or_removed
         else:
-            new_feature[i] = remove_value_tag(feature[i])
+            new_feature[key] = remove_or_tag(feature[key])
     return new_feature
+            
 
 # This function acceps a normalized feature structure (which uses __value__
 # as the last level of indexing) and a regular expression, and returns
@@ -1351,9 +1384,24 @@ def debug_merge_fs():
     fs2['wzq']['cvb'] = '45454'
     print fs1.unify(fs2)
 
+def debug_remove_or_tag():
+    fs1 = FeatStruct()
+    fs2 = FeatStruct()
+    fs3 = FeatStruct()
+    fs4 = FeatStruct()
+    fs4['more'] = fs3
+    fs2['__or_a'] = 'a'
+    fs2['__or_wzq'] = 'wzq'
+    fs2['__or_qwe'] = 'qwe'
+    fs1['apple'] = fs2
+    fs1['orange'] = fs4
+    fs3['__or_zxcv'] = 'zxcv'
+    fs3['__or_4567'] = '4567'
+    print remove_or_tag(fs1)
+    
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
     #debug_get_path_list()
     #debug_make_rhs_using_or()
     #debug()
-    debug_merge_fs()
+    debug_remove_or_tag()
