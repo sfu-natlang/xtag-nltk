@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from nltk.featstruct import FeatStruct
 import re
+import copy
 
 def get_next_token(s,index,length=None):
     # This function is used by the LL parser to extract out tokens from the input
@@ -137,7 +138,7 @@ def evaluate_expression(s,index):
         return (ret[0],index)
 
 def parse_expression(s,index):
-    # This function is used to paese an expression. i.e. those strings identified
+    # This function is used to parse an expression. i.e. those strings identified
     # by '"' at the start and the end, and also other types, such as 'setf'
     # and 'concatenate'.
     values = []
@@ -313,6 +314,11 @@ path = None
 
 def get_file_tree(node,type_string):
     # DON'T DIRECTLY CALL THIS
+    # Given the root node of the parsing tree, and the file type that you want
+    # to extract, this function will return the tree containing the list
+    # of the files of that type.
+    # Legal file type:
+    # 
     global file_list,suffix,path
     ret = None
     if node[0] == "top":
@@ -371,7 +377,7 @@ def get_option_value(node,opt_name):
     it will return a None. So to detect None return value is necessary.
 
     Example:
-    get_option_value(cata,start-feature)
+    get_option_value(cata,'start-feature')
     Return:
     <mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil
     """
@@ -452,7 +458,45 @@ def test_leaf(fs):
         is_leaf = True
         
     return is_leaf
-    
+
+def test_single_entry(fs):
+    """
+    test_single_entry(FeatStruct) -> Bool
+
+    This function will test whether a given leaf node is a single entry
+    node, which means that if we want to modify this node we need not to
+    specify the LHS.
+
+    If the feature structure given is not a leaf node then an error will be
+    raised.
+
+    For example: fs = [apple = [orange = [__or_123 = '123']]]
+                 test_single_entry = True
+                 fs = [apple = [orange = [__or_123 = '123']]]
+                      [                  [__or_456 = '456']]]
+                 test_single_entry = False
+    """
+    if test_leaf(fs) == False:
+        raise ValueError('The feature structure is not a leaf node')
+    else:
+        keys = fs.keys()
+        if len(keys) == 1:
+            return True
+        else:
+            return False
+
+def make_leaf_str(rhs):
+    """
+    make_leaf_str(str) -> str
+
+    This simple function is mainly used to construct the LHS string using
+    an RHS string. For the current stage we just append a '__or_' to it.
+
+    For example: rhs = 'wzq'
+                 make_leaf_str(rhs) = '__or_wzq'
+    """
+    return '__or_' + rhs
+
 def make_fs(lhs,rhs,ref=0):
     # This function makes a feature structure using a list of lhs which are nested
     # e.g. if lhs = ['a','b','c','d'] and rhs = 'wzq' then the
@@ -604,6 +648,72 @@ def get_start_feature(node):
     s = get_option_value(node,'start-feature')
     return parse_feature_in_catalog(s)
 
+#########################################################
+# Feature Structure Function For Future Use #############
+#########################################################
+
+def modify_feature_entry(feature,path,rhs,lhs=None):
+    """
+    modify_feature_entry(FeatStruct,list,str,str) -> FeatStruct
+
+    This function is called when the user would like to modify the value
+    of some entry in a feature structure. The path is a list containing
+    the LHSs of all levels along the path (must be valie, i.e. all LHSs
+    must exist), and rhs is the value we want to modify. In this case
+    the value of lhs will be ignored.
+
+    For example, fs = [apple = [orange = [__or_wzq = 'wzq']]]
+                 path = [apple,orange], rhs = 'www'
+                 modify_feature_entry(fs,path,rhs) ->
+                      [apple = [orange = [__or_www = 'www']]]
+
+    Because the internal repersentation of the feature structure is different
+    from what it looks like, i.e. we adapted the (__or_ + lhs) lhs to deal with
+    the situation where we must handle "or" relation in one feature structure
+    which is not supported by FeatStruct (or we cannot find a more simpler one).
+    So the function provides another parameter called lhs, which is by default
+    a None object, but you can assggn value to it under some condition. If the
+    target feature struct is a __or_ structure, which has multiple __or_ entries
+    you must specify which one you would like to modify, or if it is detected that
+    there are multiple entries but no lhs was specified, the function will throw
+    out an error.
+
+    Also notice that lhs is the string where __or_ is removed, or to say, lhs
+    is actually the old rhs of the entry which we want to remove.
+
+    For example, fs = [apple = [orange = [__or_wzq = 'wzq']]]
+                      [                  [__or_123 = '123']]]
+                 path = [apple,orange], rhs = 'www', lhs = 'wzq'
+                 modify_feature_entry(fs,path,rhs,lhs) ->
+                      [apple = [orange = [__or_www = 'www']]]
+                      [                  [__or_123 = '123']]]
+    """
+    # We must make a copy of the feature and modify on that copy
+    # or the original feature structure will be affected and other
+    # operations may get undefined error.
+    current_fs = copy.deepcopy(feature)
+    # Make a copy pointer points to the whole fs, in order to return it in the
+    # future. Because current_fs will be changed and cannot come back.
+    returned_fs = current_fs
+    for node in path:
+        if current_fs.has_key(node):
+            current_fs = current_fs[node]
+        else:
+            raise KeyError('No such node %s in the feature structure' % (node))
+
+    if test_single_entry(current_fs) == True:
+        # Remove the only entry, since we have been assurred there is only 1
+        current_fs.pop(current_fs.keys()[0])
+    else:
+        current_fs.pop('__or_' + lhs)
+    current_fs['__or_' + rhs] = rhs
+    
+    return returned_fs
+
+############################################
+# Analyze Morphology File ##################
+############################################
+
 def analyze_morph(s):
     # The return value is a dictionary using words in the sentence as index. The
     # entry is a list, the element of which is a tuple. The first element of the
@@ -645,6 +755,10 @@ def analyze_morph(s):
         morph[sub_line[0][0]] = morph_list
         
     return morph
+
+##############################################
+# Analyze Syntax File ########################
+##############################################
 
 def check_index(index):
     if index == -1:
@@ -831,7 +945,7 @@ def analyze_template(s):
 # analyze_tree_1(s) will split the options and trees into a list, the first and second
 # element of which is None, the third being the tree, and the fourth being
 # the list of oprion, which will be processed in later phases
-def first_pass(s):
+def analyze_tree_1(s):
     """
     analyze_tree_1() -> list
 
@@ -866,7 +980,7 @@ def first_pass(s):
 
     return xtag_trees
 
-def second_pass(xtag_trees):
+def analyze_tree_2(xtag_trees):
     """
     analyze_tree_2() -> list
 
@@ -926,7 +1040,7 @@ def second_pass(xtag_trees):
         
     return xtag_trees
 
-def third_pass(xtag_trees):
+def analyze_tree_3(xtag_trees):
     """
     analyze_tree_3() -> list
 
@@ -997,7 +1111,7 @@ def get_path_list(s):
     return right
     
 
-def fourth_pass(xtag_trees):
+def analyze_tree_4(xtag_trees):
     """
     analyze_tree_4() -> list
 
@@ -1040,7 +1154,7 @@ def fourth_pass(xtag_trees):
     
     return xtag_trees
 
-def fifth_pass(xtag_trees):
+def analyze_tree_5(xtag_trees):
     """
     analyze_tree_5() -> list
 
@@ -1398,10 +1512,28 @@ def debug_remove_or_tag():
     fs3['__or_zxcv'] = 'zxcv'
     fs3['__or_4567'] = '4567'
     print remove_or_tag(fs1)
+
+def debug_modify_feature_entry():
+    fs1 = FeatStruct()
+    fs2 = FeatStruct()
+    fs3 = FeatStruct()
+    fs4 = FeatStruct()
+    fs4['more'] = fs3
+    #fs2['__or_a'] = 'a'
+    fs2['__or_wzq'] = 'wzq'
+    #fs2['__or_qwe'] = 'qwe'
+    fs1['apple'] = fs2
+    fs1['orange'] = fs4
+    fs3['__or_zxcv'] = 'zxcv'
+    fs3['__or_4567'] = '4567'
+    print modify_feature_entry(fs1,['apple'],'8888','1212121212')
+    print '-------------------------'
+    print fs1
     
+
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
     #debug_get_path_list()
     #debug_make_rhs_using_or()
     #debug()
-    debug_remove_or_tag()
+    debug_modify_feature_entry()
