@@ -3,6 +3,12 @@ from nltk.featstruct import FeatStruct
 import re
 import copy
 
+###########################################
+# LL Parser for catalog file ##############
+###########################################
+
+# Do not call these functions from the outside! Only be used by the parser
+
 def get_next_token(s,index,length=None):
     # This function is used by the LL parser to extract out tokens from the input
     # stream, which is not a general one, but is designed and simplified just
@@ -411,6 +417,38 @@ def get_option_value(node,opt_name):
 # Operations on feature structures ##################
 #####################################################
 
+def remove_or_tag(feature):
+    """
+    remove_or_tag(FeatStruct) -> FeatStruct
+
+    Given a feature structure in the internal repersentation of our xtag system
+    (i.e. each leaf is wrapped with an '__or_' + lhs feature struct), this function
+    will get rid of the __or_ tag, and produce a feature structure where no __or_
+    is there, and the multiple or relation is represented as [__or_1]/[__or_2]/ ...
+
+    e.g. for fs = [apple = [__or_a = 'a']]
+                  [        [__or_b = 'b']]
+                  [        [__or_c = 'c']]
+                  
+    remove_or_tag(fs) will return:
+
+      fs_return = [apple = 'a/b/c']
+    """
+    new_feature = FeatStruct()
+    for key in feature.keys():
+        entry = feature[key]
+        entry_keys = entry.keys()
+        if test_leaf(entry) == True:
+            str_or_removed = entry[entry_keys[0]]
+            if len(entry_keys) > 1:
+                for i in entry_keys[1:]:
+                    str_or_removed += '/' + entry[i]
+                    
+            new_feature[key] = str_or_removed
+        else:
+            new_feature[key] = remove_or_tag(feature[key])
+    return new_feature
+
 def make_rhs_using_or(rhs):
     """
     make_rhs_using_or(string) -> FeatStruct
@@ -472,6 +510,7 @@ def test_single_entry(fs):
 
     For example: fs = [apple = [orange = [__or_123 = '123']]]
                  test_single_entry = True
+                 
                  fs = [apple = [orange = [__or_123 = '123']]]
                       [                  [__or_456 = '456']]]
                  test_single_entry = False
@@ -485,6 +524,20 @@ def test_single_entry(fs):
         else:
             return False
 
+def test_empty_entry(fs):
+    """
+    test_empty_entry(FeatStruct) -> Bool
+
+    This function will test whether a given feature structuer is an empty entry fs.
+    An empty entry fs is defined not as an empty entry (i.e. []), it is defined
+    as strictly [__or_ = '']. Only this feature structure will cause a return
+    value of True, otherwise it will return False.
+    """
+    if fs.has_key('__or_') and len(fs.keys()) == 1:
+        return True
+    else:
+        return False
+    
 def make_leaf_str(rhs):
     """
     make_leaf_str(str) -> str
@@ -660,7 +713,8 @@ def modify_feature_entry(feature,path,rhs,lhs=None):
     of some entry in a feature structure. The path is a list containing
     the LHSs of all levels along the path (must be valie, i.e. all LHSs
     must exist), and rhs is the value we want to modify. In this case
-    the value of lhs will be ignored.
+    the value of lhs will be ignored, but you can always add one in order
+    to achieve some consistency.
 
     For example, fs = [apple = [orange = [__or_wzq = 'wzq']]]
                  path = [apple,orange], rhs = 'www'
@@ -672,7 +726,7 @@ def modify_feature_entry(feature,path,rhs,lhs=None):
     the situation where we must handle "or" relation in one feature structure
     which is not supported by FeatStruct (or we cannot find a more simpler one).
     So the function provides another parameter called lhs, which is by default
-    a None object, but you can assggn value to it under some condition. If the
+    a None object, but you can assign value to it under some condition. If the
     target feature struct is a __or_ structure, which has multiple __or_ entries
     you must specify which one you would like to modify, or if it is detected that
     there are multiple entries but no lhs was specified, the function will throw
@@ -710,6 +764,130 @@ def modify_feature_entry(feature,path,rhs,lhs=None):
     
     return returned_fs
 
+def get_all_path(fs):
+    """
+    get_all_path(FeatStruct) -> list[list,list,...]
+
+    This function will retuen all possible paths in a feature structure. The
+    term path means one way from the root to a leaf (not including __or_ level)
+    and each path is repersented by a list, the element of which is the node name
+    (i.r. LHS in the feature structure).
+
+    The return value itself is also a list, which contains all paths in the
+    feature structure given.
+
+    For example:
+
+    fs = 
+
+    [ comp  = [ __or_nil = 'nil' ]                  ]
+    [                                               ]
+    [ mode  = [ __or_imp = 'imp' ]                  ]
+    [         [ __or_ind = 'ind' ]                  ]
+    [                                               ]
+    [         [ struct = [ __or_nil = 'nil' ]     ] ]
+    [         [                                   ] ]
+    [ punct = [          [ __or_excl  = 'excl'  ] ] ]
+    [         [ term   = [ __or_per   = 'per'   ] ] ]
+    [         [          [ __or_qmark = 'qmark' ] ] ]
+    [                                               ]
+    [ wh    = [ __or_<invlink> = '<invlink>' ]      ]
+
+    result = 
+    
+    [['comp'], ['punct', 'term'], ['punct', 'struct'], ['mode'], ['wh']]
+    """
+    this_level = []
+    for key in fs.keys():
+        entry = fs[key]
+        if test_leaf(entry) == True:
+            this_level.append([key])
+        else:
+            next_level = get_all_path(entry)
+            for i in next_level:
+                i.insert(0,key)
+            this_level += next_level
+
+    return this_level
+
+def get_element_by_path(fs,path):
+    """
+    get_element_by_path(FeatStruct,list) -> FeatStruct / None
+
+    This function will return the entry in feature struct using the path given.
+    If the path does not exist then it will return a None object, so please
+    check the result value before using it. If the return value is not None
+    then it is the entry fetched using the path, which is a list containing
+    all nodes along the path down from the root to a certain node.
+
+    For example:
+
+    fs =    [          [ __or_a   = 'a'   ]              ]
+            [ apple  = [ __or_qwe = 'qwe' ]              ]
+            [          [ __or_wzq = 'wzq' ]              ]
+            [                                            ]
+            [ orange = [ more = [ __or_4567 = '4567' ] ] ]
+            [          [        [ __or_zxcv = 'zxcv' ] ] ]
+    path = ['orange','more']
+    return =    [ __or_4567 = '4567' ]
+                [ __or_zxcv = 'zxcv' ]
+
+    path = ['orange','less']
+    return = None
+    """
+    current_fs = fs
+    for node in path:
+        if current_fs.has_key(node):
+            current_fs = current_fs[node]
+        else:
+            return None
+    return current_fs
+    
+
+def fill_in_empty_entry(fs1,fs2):
+    """
+    fill_in_empty_entry(FeatStruct,FeatStruct) -> None
+
+    This function will try to find common entries between the two feature
+    structures, and if one of them is of empty value, then we will rewrite
+    it using the value in another feature structure. Only those whose path
+    is the same and one of them is empty while one of them while another is
+    not, will be rewritten.
+
+    If both entries are empty, although it is very weird, we will let it pass
+    since this is not a fatal error. And if both are not empty, but their values
+    are different, then it is natural that this entry will be deleted during
+    unification, so we also won't say anything about that.
+
+    Besides, this function will only check all possible paths in fs1, and then
+    rewrite all entries found qualified in fs2. But in practice
+    we usually want a symmetric result, i.e. the value of the unification is
+    indepedent of the order in which the two feature structures are given. So
+    it is proper practice to call this function two times, with the parameters
+    exchanged, to ensure that all paths available have been checked.
+
+    e.g. fill_in_empty_entry(fs1,fs2)
+         fill_in_empty_entry(fs2,fs1)
+
+    What's more, this function will change fs1 and fs2, so if you are
+    not expecting this kind of behaviour, then just make a deepcopy of the fs
+    before calling this function.
+    """
+    all_path = get_all_path(fs1)
+    for p in all_path:
+        old_value = get_element_by_path(fs2,p)
+        if old_value != None: # Such path exist in fs2
+            overwrite_value = get_element_by_path(fs1,p)
+            # Need to test respectively whether the entry is empty
+            if test_empty_entry(old_value) == True and test_empty_entry(overwrite_value) == False:
+                for i in overwrite_value.keys():
+                    old_value[i] = overwrite_value[i]
+                old_value.pop('__or_') # Remove the '__or_' entry
+    return
+                
+                        
+            
+    
 ############################################
 # Analyze Morphology File ##################
 ############################################
@@ -1254,38 +1432,6 @@ def analyze_tree_5(xtag_trees):
 #        else:
 #            new_feature[i] = remove_value_tag(feature[i])
 #    return new_feature
-
-def remove_or_tag(feature):
-    """
-    remove_or_tag(FeatStruct) -> FeatStruct
-
-    Given a feature structure in the internal repersentation of our xtag system
-    (i.e. each leaf is wrapped with an '__or_' + lhs feature struct), this function
-    will get rid of the __or_ tag, and produce a feature structure where no __or_
-    is there, and the multiple or relation is represented as [__or_1]/[__or_2]/ ...
-
-    e.g. for fs = [apple = [__or_a = 'a']]
-                  [        [__or_b = 'b']]
-                  [        [__or_c = 'c']]
-                  
-    remove_or_tag(fs) will return:
-
-      fs_return = [apple = 'a/b/c']
-    """
-    new_feature = FeatStruct()
-    for key in feature.keys():
-        entry = feature[key]
-        entry_keys = entry.keys()
-        if test_leaf(entry) == True:
-            str_or_removed = entry[entry_keys[0]]
-            if len(entry_keys) > 1:
-                for i in entry_keys[1:]:
-                    str_or_removed += '/' + entry[i]
-                    
-            new_feature[key] = str_or_removed
-        else:
-            new_feature[key] = remove_or_tag(feature[key])
-    return new_feature
             
 
 # This function acceps a normalized feature structure (which uses __value__
@@ -1488,52 +1634,65 @@ def debug_get_path_list():
     path = 'Ad_f.t:<compar other wzq>'
     print get_path_list(path)
 
+fs1 = FeatStruct()
+fs2 = FeatStruct()
+fs3 = FeatStruct()
+fs4 = FeatStruct()
+fs4['more'] = fs3
+fs2['__or_a'] = 'a'
+fs2['__or_wzq'] = 'wzq'
+fs2['__or_qwe'] = 'qwe'
+fs1['apple'] = fs2
+fs1['orange'] = fs4
+fs3['__or_zxcv'] = 'zxcv'
+fs3['__or_4567'] = '4567'
+
 def debug_merge_fs():
-    fs1 = FeatStruct()
-    fs2 = FeatStruct()
-    fs1['wzq'] = FeatStruct()
-    fs1['wzq']['fgh'] = '890'
-    fs2['qwe'] = '456'
-    fs2['wzq'] = FeatStruct()
-    fs2['wzq']['cvb'] = '45454'
     print fs1.unify(fs2)
 
 def debug_remove_or_tag():
-    fs1 = FeatStruct()
-    fs2 = FeatStruct()
-    fs3 = FeatStruct()
-    fs4 = FeatStruct()
-    fs4['more'] = fs3
-    fs2['__or_a'] = 'a'
-    fs2['__or_wzq'] = 'wzq'
-    fs2['__or_qwe'] = 'qwe'
-    fs1['apple'] = fs2
-    fs1['orange'] = fs4
-    fs3['__or_zxcv'] = 'zxcv'
-    fs3['__or_4567'] = '4567'
     print remove_or_tag(fs1)
 
 def debug_modify_feature_entry():
-    fs1 = FeatStruct()
-    fs2 = FeatStruct()
-    fs3 = FeatStruct()
-    fs4 = FeatStruct()
-    fs4['more'] = fs3
-    #fs2['__or_a'] = 'a'
-    fs2['__or_wzq'] = 'wzq'
-    #fs2['__or_qwe'] = 'qwe'
-    fs1['apple'] = fs2
-    fs1['orange'] = fs4
-    fs3['__or_zxcv'] = 'zxcv'
-    fs3['__or_4567'] = '4567'
     print modify_feature_entry(fs1,['apple'],'8888','1212121212')
     print '-------------------------'
     print fs1
-    
+
+debug_start_feature = parse_feature_in_catalog('<mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil')
+empty_feature = FeatStruct()
+empty_feature['__or_'] = ''
+
+def debug_parse_feature_in_catalog():
+    print debug_start_feature
+
+def debug_get_all_path():
+    print get_all_path(debug_start_feature)
+
+def debug_get_element_by_path():
+    print get_element_by_path(fs1,['orange','less'])
+
+def debug_fill_in_empty_entry():
+    global debug_start_feature
+    fs_test = copy.deepcopy(debug_start_feature)
+    fs_test['comp'] = empty_feature
+    fs_test['punct']['term'] = copy.deepcopy(empty_feature)
+    debug_start_feature['wh'] = copy.deepcopy(empty_feature)
+    debug_start_feature['mode'] = copy.deepcopy(empty_feature)
+    print fs_test
+    print '***********************************************'
+    print debug_start_feature  
+    fill_in_empty_entry(debug_start_feature,fs_test)
+    fill_in_empty_entry(fs_test,debug_start_feature)
+    print '***********************************************'
+    print fs_test
+    print '***********************************************'
+    print debug_start_feature   
 
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
     #debug_get_path_list()
     #debug_make_rhs_using_or()
     #debug()
-    debug_modify_feature_entry()
+    #debug_parse_feature_in_catalog()
+    #debug_get_all_path()
+    debug_fill_in_empty_entry()
