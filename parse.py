@@ -5,7 +5,7 @@ def print_lable_dist(lable_dist,fp):
     d = lable_dist.freqdist()
     for i in d.keys():
         fp.write(i + ' ' + str(d[i]) + '\n')
-    fp.write('?')
+    fp.write('?????\n')
     return
 
 def print_feature_dist(feature_dist,fp):
@@ -18,7 +18,7 @@ def print_feature_dist(feature_dist,fp):
         d = feature_dist[i].freqdist()
         for j in d.keys():
             fp.write(str(j) + ' ' + str(d[j]) + '\n')
-        fp.write(';\n')
+        fp.write(';;;;;\n')
     return
         
 
