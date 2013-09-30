@@ -14,6 +14,37 @@ from nltk.draw.tree import (TreeView, TreeWidget, TreeSegmentWidget)
 from nltk.sem.logic import (Variable, Expression)
 from nltk.draw.util import *
 
+def load():
+    cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
+    
+    cata = get_catalog(cata_str)
+    sfs = get_start_feature(cata)
+    t = parse_from_files(cata, 'tree-files')
+    t += parse_from_files(cata, 'family-files')
+    t.set_start_fs(sfs)
+
+    morph = get_file_list(cata, 'morphology-files')
+    syn = get_file_list(cata, 'lexicon-files')
+    temp = get_file_list(cata, 'templates-files')
+    default = get_file_list(cata, 'syntax-default')
+
+    morph_path = 'xtag_grammar/%s' % morph[0][0] 
+    syn_path = 'xtag_grammar/%s' % syn[0][0] 
+    temp_path = 'xtag_grammar/%s' % temp[0][0] 
+    default_path = 'xtag_grammar/%s' % default[0][0] 
+    
+    morph_str = nltk.data.find(morph_path).open().read()
+    syn_str = nltk.data.find(syn_path).open().read()
+    temp_str = nltk.data.find(temp_path).open().read()
+    default_str = nltk.data.find(default_path).open().read()
+
+    init(morph_str, syn_str, temp_str, default_str)
+
+    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
+    treetok = graph_parse(treetok)
+    graph = DependencyGraphView(treetok, t)
+    graph.mainloop() 
+
 class TAGTreeSegmentWidget(TreeSegmentWidget):
     """
     A canvas widget that displays a single segment of a hierarchical
