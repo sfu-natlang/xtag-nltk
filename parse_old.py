@@ -5,7 +5,6 @@
 #
 # URL: <http://www.nltk.org/>
 # For license information, see LICENSE.TXT
-# T
 #
 
 from nltk.parse.nonprojectivedependencyparser import NonprojectiveDependencyParser
