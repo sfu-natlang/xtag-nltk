@@ -299,13 +299,14 @@ def print_tree(node,table=0):
             print '    ' * table + value
     return
 
-def get_catalog(filename):
-    # Given the filename, this function is used to get the parse tree from
+def get_catalog(content):
+    # Given the string, this function is used to get the parse tree from
     # that file. Only call that once, and the parse tree can be used multiple
     # times to get options.
-    fp = open(filename)
-    s = fp.read()
-    fp.close()
+    #fp = open(filename)
+    #s = fp.read()
+    s = content
+    #fp.close()
 
     cata = parse_catalog(s,0)
     return cata
@@ -1573,28 +1574,28 @@ def init(morph,syntax,temp,default):
     """
     global inited
     global dicts
-    fp = open(morph)
-    s = fp.read()
+    #fp = open(morph)
+    s = morph
     morph_dict = analyze_morph(s)
-    fp.close()
+    #fp.close()
 
-    fp = open(default)
-    default_syntax = fp.read()
-    fp.close()
+    #fp = open(default)
+    default_syntax = default
+    #fp.close()
 
-    fp = open(syntax)
-    s = fp.read()
-    s += "\n" + default_syntax
+    #fp = open(syntax)
+    s = syntax
+    #s += "\n" + default_syntax
     # syntax_dict[0] is the dict for forward query, i.e. from word to trees and to feature structures
     # and syntax_dict[1] is the dict for reverse query, i.e. from tree name to entries (word or words)
     syntax_dict = analyze_syntax(s)
-    print default_syntax
-    fp.close()
+    #print default_syntax
+    #fp.close()
 
-    fp = open(temp)
-    s = fp.read()
+    #fp = open(temp)
+    s = temp
     template_dict = analyze_template(s)
-    fp.close()
+    #fp.close()
 
     dicts = (morph_dict,syntax_dict[0],template_dict,syntax_dict[1])
 
