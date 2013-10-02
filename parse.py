@@ -66,7 +66,7 @@ def restore_from_disk(filename):
     return obj
 
 ####################################
-# Tree operation ###################
+# Tree Compatibility ###############
 ####################################
 
 def get_name_prefix(name):
@@ -303,7 +303,7 @@ def tree_compatible(tree_1,tree_2,word_list=None,operation='AS'):
     :param word_list: A list of words to enforce word order in the resulting trees
     :type word_list: list(str)
 
-    :return: The result of sunstitution and adjunction
+    :return: The result of substitution and adjunction
     :rtype: tuple(list,list,list,list)
 
     The first two parameters, tree_1 and tree_2, have an order constraint, i.e.
@@ -329,7 +329,7 @@ def tree_compatible(tree_1,tree_2,word_list=None,operation='AS'):
     tree_x <- tree_y means the root of tree_y is combined with the leaf of tree_x
     and for adjunction it menas the foot node in on tree_y.
 
-    Also take care that there is not a valid way to prohibit order enforcing in
+    Also take care that there is not a valid way to prohibit order enforcement in
     substitution. I did this with no reason.
 
     For more details about substitution and adjunction please refer to the
