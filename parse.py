@@ -66,10 +66,18 @@ def restore_from_disk(filename):
     return obj
 
 ####################################
-# Tree operation ###################
+# Tree Compatibility ###############
 ####################################
 
-def get_name_no_prefix(name):
+def get_name_prefix(name):
+    """
+    Return the name prefix, if there is no prefix then just return itself.
+
+    e.g. S_r --> S; NP_1 --> NP; VP --> VP
+
+    :type name: str
+    :param name: The name of a node
+    """
     index = name.find('_')
     if index != -1:
         name = name[:index]
@@ -168,38 +176,194 @@ def check_adjunction(tree_1,tree_2):
     :rtype: list
     """
     result = []
-    foot_2 = tree_2.get_foot_node()
-    if foot_2 == None:
+    # this will return only a node
+    foot_2 = tree_2.get_foot_node() 
+    # The method returns None if not found (not an auxiliary tree)
+    if foot_2 == None:  
         return []
+    # Get the string name
     foot_name = foot_2.get_node_name()
-    foot_name_no_prefix = get_name_no_prefix(foot_2.get_node_name())
-    names = foot_1.prefix_search(foot_name_no_prefix)
+    # root_name_no_prefix = get_name_no_prefix(tree_2.get_node_name())
+    # is actually the same, but we will not rely on that
+    # Strip prefix
+    foot_name_prefix = get_name_prefix(foot_2.get_node_name())
+    # Using prefix to search for a list of nodes
+    names = foot_1.prefix_search(foot_name_prefix)
+    # Check each possible node that is 
     for i in names:
+        # Make copies, including feature structures in each tree
         new_tree_1 = deepcopy(tree_1)
         new_tree_2 = deepcopy(tree_2)
+        # Locate the foot node, since it is a different instance
         new_foot = new_tree_2.search(foot_name)
-        new_node = new_tree_1.search(i.get_node_name())
-        new_node_child = new_node.get_child_node()
+        # Locate the node being adjoint, the reason is the same
+        adj_node = new_tree_1.search(i.get_node_name())
+        # It is a list
+        new_node_child = adj_node.get_child_node()
+        # Append all child node to the foot node
         for j in new_node_child:
-            new_tree_2.search(foot_name).append_new_child(j)
-        new_node.delete_all_child()
+            new_foot.append_new_child(j)
+        # Delete all nodes on the node being adjoint
+        adj_node.delete_all_child()
+        # Then attach tree_2 in the whole to the adj_node
         for j in new_tree_2.get_child_node():
-            new_node.append_new_child(j)
-        t = new_node.get_top_feature()
-        b = new_node.get_bottom_feature()
+            adj_node.append_new_child(j)
+
+        # Next we will change the feature structure
+        # The detail is recorded in the technical report
+        t = adj_node.get_top_feature()
+        b = adj_node.get_bottom_feature()
         tr = new_tree_2.get_top_feature()
         br = new_tree_2.get_bottom_feature()
         tf = new_foot.get_top_feature()
         bf = new_foot.get_bottom_feature()
-        new_node.set_top_feature(t.unify(tr))
-        new_node.set_bottom_feature(br)
+        adj_node.set_top_feature(t.unify(tr))
+        adj_node.set_bottom_feature(br)
         new_foot.set_bottom_feature(b.unify(bf))
+        # Don't forget to let the foot node become a normal node
+        new_foot.cancel_adjunction()
+        # Add this new tree into the list
         result.append(new_tree_1)
+        
     return result
-    
 
-def tree_compatible(tree_1,tree_2):
-    pass
+def check_word_order(t,word_list):
+    """
+    Given a TagTree and a list of words, make sure that the leaves in the tree
+    which are words are in the same order as those in word_list.
+
+    word_list need not to be a full list describing all lex in the tree, but
+    it must not contain un-existing word. As all words in word_list has the same
+    order as it is in word_list, this function will return True. Or else a False
+    will be returned.
+
+    :param t: TagTree to be checked
+    :type t: TagTree
+
+    :param word_list: A list of words (exact word, not the lex)
+    :type word_list: list(str)
+
+    :return: True if the order is the same and False if different
+    :rtype: boolean`
+    """
+    # Get the list of all leaf words from the tree
+    tree_word_list = t.get_word_list()
+    tree_word_list_2 = []
+    # Check if all words in word_list exist in the tree, if not raise an error
+    for i in word_list:
+        if not i in tree_word_list:
+            raise ValueError('No word %s found in the tree' % (i))
+    # Remove those word not in word_list. After this step the two list
+    # should be of the same length, only the order is different
+    for i in tree_word_list:
+        if i in word_list:
+           tree_word_list_2.append(i)
+    # For debug: if the length is different then out theory is wrong
+    if len(tree_word_list_2) != len(word_list):
+        raise ValueError('Something strange happened here (for debug)')
+    # Check the order by comparing all indexes, if one comparision fails
+    # then the test will fail
+    for i in range(0,len(word_list)):
+        if word_list[i] != tree_word_list_2[i]:
+            return False
+    # Passed all test, succeed
+    return True
+
+def enforce_word_order(tree_list,word_list):
+    """
+    Just a wrapper of check_word_order, iteratively checking the order for a list
+    of trees, and remove those not qualified.
+
+    :param tree_list: The list of trees
+    :type tree_list: list(TagTree)
+
+    :param word_list: A list of words (exact word, not the lex)
+    :type word_list: list(str)
+
+    :return: A reduced list with non-qualified trees removed
+    :rtype: list(TagTree)
+    """
+    ret = []
+    for i in tree_list:
+        if check_word_order(i,word_list) == True:
+            ret.append(i)
+    return ret
+        
+        
+def tree_compatible(tree_1,tree_2,word_list=None,operation='AS'):
+    """
+    To combine two trees together using substitution or adjunction.
+
+    :param tree_1: The first tree
+    :type tree_1: TagTree
+
+    :param tree_2: The second tree
+    :type tree_2: TagTree
+
+    :param word_list: A list of words to enforce word order in the resulting trees
+    :type word_list: list(str)
+
+    :return: The result of substitution and adjunction
+    :rtype: tuple(list,list,list,list)
+
+    The first two parameters, tree_1 and tree_2, have an order constraint, i.e.
+    in the result of substitution, the words in tree_1 must be before the words
+    in tree_2. But in the result of adjunction, no such constraint exist. Optionally
+    we can choose to pass another parameter called word_list, to enforce the
+    correct order in the result of adjunction. The word_list is a list of words
+    the order of which must be followed in the resulting tree. The default value
+    is None, which means do not check this, but usually we need a check and need
+    not to code another checking procedure.
+
+    Besides there is another option parameter called operation. This parameter
+    is used to control the behaviour of the function. Essentially it is a string
+    including controlling charaters. 'A' stands for Adjunction, 'S' stands for
+    substitution. 'AS' or 'SA' will do both, and 'A' will only do adjunction while
+    'S' will only do substitution. Other characters have no effect except that
+    in the later version of this function we may add more functionalities and make
+    extensions to the control characters.
+
+    The return value is a tuple which has four components, and they are the result
+    of substitution tree_1 <- tree_2, substitution tree_2 <- tree_1, adjunction
+    tree_1 <- tree_2 and adjunction tree_2 <- tree_1. For substitution
+    tree_x <- tree_y means the root of tree_y is combined with the leaf of tree_x
+    and for adjunction it menas the foot node in on tree_y.
+
+    Also take care that there is not a valid way to prohibit order enforcement in
+    substitution. I did this with no reason.
+
+    For more details about substitution and adjunction please refer to the
+    technical report of the XTAG project.
+
+    http://www.cis.upenn.edu/~xtag/gramrelease.html
+    """
+    # Convert to upper case
+    operation = operation.upper()
+    # These two is to make sure the word in tree_1 must be at the left
+    # of tree_2, whild trying all possible combinations
+    # To control if we need to do substitution
+    if 'A' in operation:
+        sub_1 = check_substitution(tree_1,tree_2,False)
+        sub_2 = check_substitution(tree_2,tree_1,True)
+    else:
+        sub_1 = []
+        sub_2 = []
+    # Adjunction does not guarantee the order so we have an additional step
+    # To control if we need to do adjunction
+    if 'S' in operation:
+        adj_1 = check_adjunction(tree_1,tree_2)
+        adj_2 = check_adjunction(tree_2,tree_1)
+    else:
+        adj_1 = []
+        adj_2 = []
+
+    # To control if we need an order enforcement
+    if word_list != None:
+        enforce_word_order(adj_1,word_list)
+        enforce_word_order(adj_2,word_list)
+        
+    # We return them separately to enable more flexable process later
+    return (sub_1,sub_2,adj_1,adj_2)
 
 ####################################
 # Debugging information ############
