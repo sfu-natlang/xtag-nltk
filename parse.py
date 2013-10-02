@@ -69,7 +69,15 @@ def restore_from_disk(filename):
 # Tree operation ###################
 ####################################
 
-def get_name_no_prefix(name):
+def get_name_prefix(name):
+    """
+    Return the name prefix, if there is no prefix then just return itself.
+
+    e.g. S_r --> S; NP_1 --> NP; VP --> VP
+
+    :type name: str
+    :param name: The name of a node
+    """
     index = name.find('_')
     if index != -1:
         name = name[:index]
@@ -168,33 +176,55 @@ def check_adjunction(tree_1,tree_2):
     :rtype: list
     """
     result = []
-    foot_2 = tree_2.get_foot_node()
-    if foot_2 == None:
+    # this will return only a node
+    foot_2 = tree_2.get_foot_node() 
+    # The method returns None if not found (not an auxiliary tree)
+    if foot_2 == None:  
         return []
+    # Get the string name
     foot_name = foot_2.get_node_name()
-    foot_name_no_prefix = get_name_no_prefix(foot_2.get_node_name())
-    names = foot_1.prefix_search(foot_name_no_prefix)
+    # root_name_no_prefix = get_name_no_prefix(tree_2.get_node_name())
+    # is actually the same, but we will not rely on that
+    # Strip prefix
+    foot_name_prefix = get_name_prefix(foot_2.get_node_name())
+    # Using prefix to search for a list of nodes
+    names = foot_1.prefix_search(foot_name_prefix)
+    # Check each possible node that is 
     for i in names:
+        # Make copies, including feature structures in each tree
         new_tree_1 = deepcopy(tree_1)
         new_tree_2 = deepcopy(tree_2)
+        # Locate the foot node, since it is a different instance
         new_foot = new_tree_2.search(foot_name)
-        new_node = new_tree_1.search(i.get_node_name())
-        new_node_child = new_node.get_child_node()
+        # Locate the node being adjoint, the reason is the same
+        adj_node = new_tree_1.search(i.get_node_name())
+        # It is a list
+        new_node_child = adj_node.get_child_node()
+        # Append all child node to the foot node
         for j in new_node_child:
-            new_tree_2.search(foot_name).append_new_child(j)
-        new_node.delete_all_child()
+            new_foot.append_new_child(j)
+        # Delete all nodes on the node being adjoint
+        adj_node.delete_all_child()
+        # Then attach tree_2 in the whole to the adj_node
         for j in new_tree_2.get_child_node():
-            new_node.append_new_child(j)
-        t = new_node.get_top_feature()
-        b = new_node.get_bottom_feature()
+            adj_node.append_new_child(j)
+
+        # Next we will change the feature structure
+        # The detail is recorded in the technical report
+        t = adj_node.get_top_feature()
+        b = adj_node.get_bottom_feature()
         tr = new_tree_2.get_top_feature()
         br = new_tree_2.get_bottom_feature()
         tf = new_foot.get_top_feature()
         bf = new_foot.get_bottom_feature()
-        new_node.set_top_feature(t.unify(tr))
-        new_node.set_bottom_feature(br)
+        adj_node.set_top_feature(t.unify(tr))
+        adj_node.set_bottom_feature(br)
         new_foot.set_bottom_feature(b.unify(bf))
+        # Don't forget to let the foot node become a normal node
+        new_foot.cancel_adjunction()
+        # Add this new tree into the list
         result.append(new_tree_1)
+        
     return result
     
 
