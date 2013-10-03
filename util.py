@@ -6,7 +6,6 @@
 # URL: <http://www.nltk.org/>
 # For license information, see LICENSE.TXT
 #
-
 import ttk
 import os
 import re
@@ -18,15 +17,19 @@ from Tkinter import *
 from nltk.util import in_idle
 from nltk.tree import Tree
 from math import sqrt, ceil
-from parse import *
+from load import *
 from nltk.draw.tree import (TreeView, TreeWidget, TreeSegmentWidget)
 from nltk.sem.logic import (Variable, Expression)
 from nltk.draw.util import *
+from collections import defaultdict
+import time
+import nltk.data
 
 def load():
     cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
     
     cata = get_catalog(cata_str)
+    print cata
     sfs = get_start_feature(cata)
     t = parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
@@ -37,22 +40,624 @@ def load():
     temp = get_file_list(cata, 'templates-files')
     default = get_file_list(cata, 'syntax-default')
 
-    morph_path = 'xtag_grammar/%s' % morph[0][0] 
-    syn_path = 'xtag_grammar/%s' % syn[0][0] 
-    temp_path = 'xtag_grammar/%s' % temp[0][0] 
-    default_path = 'xtag_grammar/%s' % default[0][0] 
+    morph_path = 'xtag_grammar' + os.sep + morph[1] + os.sep + morph[0][0]
+    syn_path = 'xtag_grammar' + os.sep + syn[1] + os.sep + syn[0][0]
+    temp_path = 'xtag_grammar' + os.sep + temp[1] + os.sep + temp[0][0]
+    default_path = 'xtag_grammar' + os.sep + default[1] + os.sep + default[0][0]
     
     morph_str = nltk.data.find(morph_path).open().read()
     syn_str = nltk.data.find(syn_path).open().read()
     temp_str = nltk.data.find(temp_path).open().read()
     default_str = nltk.data.find(default_path).open().read()
 
+    print default_str
+    print syn_str
+
     init(morph_str, syn_str, temp_str, default_str)
 
     treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
     treetok = graph_parse(treetok)
     graph = DependencyGraphView(treetok, t)
-    graph.mainloop() 
+    graph.mainloop()  
+
+def debug():
+    cata = get_catalog('../xtag-english-grammar/english.gram')
+    sfs = get_start_feature(cata)
+    t = parse_from_files(cata, 'tree-files')
+    t += parse_from_files(cata, 'family-files')
+    t.set_start_fs(sfs)
+    morph = get_file_list(cata, 'morphology-files')
+    syn = get_file_list(cata, 'lexicon-files')
+    temp = get_file_list(cata, 'templates-files')
+    default = get_file_list(cata, 'syntax-default')
+    #print morph[0]
+    morph_path = morph[1]+morph[0][0]
+    #print morph[1]
+    syn_path = syn[1]+syn[0][0]
+    temp_path = temp[1]+temp[0][0]
+    default_path = default[1]+default[0][0]
+    init(morph_path, syn_path, temp_path, default_path)
+    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
+    treetok = graph_parse(treetok)
+    graph = DependencyGraphView(treetok, t)
+    graph.mainloop()    
+
+def graph_parse(graph):
+    if isinstance(graph, basestring):
+        node_name = graph
+        return Tree(node_name, [])
+    else:
+        node_name = graph.node
+        subtree = []
+        for i in range(0, len(graph)):
+            subtree.append(graph_parse(graph[i]))
+        return Tree(node_name, subtree)
+
+
+def _tree_to_graphseg(canvas, t, make_node, make_leaf,
+                     tree_attribs, node_attribs,
+                     leaf_attribs, loc_attribs):
+    if isinstance(t, Tree):
+        node = make_node(canvas, t.node, **node_attribs)
+        subtrees = [_tree_to_graphseg(canvas, child, make_node, make_leaf,
+                                     tree_attribs, node_attribs,
+                                     leaf_attribs, loc_attribs)
+                    for child in t]
+        return GraphSegmentWidget(canvas, node, subtrees, **tree_attribs)
+    else:
+        return make_leaf(canvas, t, **leaf_attribs)
+
+def tree_to_graphsegment(canvas, t, make_node=TextWidget,
+                        make_leaf=TextWidget, **attribs):
+    tree_attribs = {}
+    node_attribs = {}
+    leaf_attribs = {}
+    loc_attribs = {}
+
+    for (key, value) in attribs.items():
+        if key[:5] == 'tree_': tree_attribs[key[5:]] = value
+        elif key[:5] == 'node_': node_attribs[key[5:]] = value
+        elif key[:5] == 'leaf_': leaf_attribs[key[5:]] = value
+        elif key[:4] == 'loc_': loc_attribs[key[4:]] = value
+        else: raise ValueError('Bad attribute: %s' % key)
+    return _tree_to_graphseg(canvas, t, make_node, make_leaf,
+                                tree_attribs, node_attribs,
+                                leaf_attribs, loc_attribs)
+
+class TreeMerge(object):
+    def __init__(self, tree_set, parent):
+        self.trees = tree_set
+        self.merge = None
+        self._parent = parent
+
+    def connect(self, tree):
+        if self.merge == None:
+            self.merge = tree
+        else:
+            top = self.merge.parent()
+            otop = tree.parent()
+            if not isinstance(top.parent(), type(top)):
+                head = top
+                parent = tree
+            elif not isinstance(otop.parent(), type(otop)):
+                head = tree
+                parent = top
+            else:
+                self.merge.reset()
+                #tree.reset()
+                self.merge = tree
+                return
+
+            if self.root(self.merge) != self.root(tree):
+                if isinstance(parent._tree, basestring):
+                    parent._tree = Tree(parent._tree, head._tree)
+                else:
+                    parent._tree.append(head._tree)
+                if head._tree in self.trees:
+                    self.trees.remove(head._tree)
+                self.merge = None
+                self._parent.redraw()
+            else:
+                self.merge.reset()
+                #tree.reset()
+                self.merge = tree
+
+    def root(self, tree):
+        child = tree.parent()
+        while isinstance(child.parent(), type(child)):
+            child = child.parent()
+        return child
+
+    def tset(self):
+        return self.trees
+
+
+
+
+class GraphSegmentWidget(TreeSegmentWidget):
+    def __init__(self, canvas, node, subtrees, tree, parent, merge, **attribs):
+        TreeSegmentWidget.__init__(self, canvas, node, 
+                                      subtrees, **attribs)
+        #self.bind_click(self._double_click, 1)
+        #self.bind_drag(self.click)
+        self._merge = merge
+        self._canvas = canvas
+        self._select = False
+        self._press = 0
+        self._tree = tree
+        self._anc = parent
+        #self.__hidden = 0
+
+        # Update control (prevents infinite loops)
+        #self.__updating = 0
+
+        # Button-press and drag callback handling.
+        self.__press = None
+        self.__drag_x = self.__drag_y = 0
+        self.__callbacks = {}
+        self.__draggable = 0
+        for tag in self._tags():
+            self._canvas.tag_bind(tag, '<ButtonPress-1>',
+                                   lambda event, line=tag:self.__press_cb(event, line))
+            #self._canvas.tag_bind(tag, '<ButtonPress-2>',
+            #                       self.__press_cb)
+            #self._canvas.tag_bind(tag, '<ButtonPress-3>',
+            #                       self.__press_cb)
+    
+    def __press_cb(self, event, tag):
+        """
+        Handle a button-press event:
+          - record the button press event in ``self.__press``
+          - register a button-release callback.
+          - if this CanvasWidget or any of its ancestors are
+            draggable, then register the appropriate motion callback.
+        """
+        # If we're already waiting for a button release, then ignore
+        # this new button press.
+        if (self._canvas.bind('<ButtonRelease-1>') or
+            self._canvas.bind('<ButtonRelease-2>') or
+            self._canvas.bind('<ButtonRelease-3>')):
+            return
+
+        # Unbind motion (just in case; this shouldn't be necessary)
+        self._canvas.unbind('<Motion>')
+
+        # Record the button press event.
+        self.__press = event
+
+        # If any ancestor is draggable, set up a motion callback.
+        # (Only if they pressed button number 1)
+        if event.num == 1:
+            widget = self
+            while widget is not None:
+                if widget['draggable']:
+                    widget._start_drag(event)
+                    break
+                widget = widget.parent()
+
+        #self.__callbacks[1] = self._double_click
+        # Set up the button release callback.
+        self._canvas.bind('<ButtonRelease-%d>' % event.num,
+                          lambda event, line=tag:self.__release_cb(event, line))
+
+    def _start_drag(self, event):
+        """
+        Begin dragging this object:
+          - register a motion callback
+          - record the drag coordinates
+        """
+        self._canvas.bind('<Motion>', self.__motion_cb)
+        self.__drag_x = event.x
+        self.__drag_y = event.y
+
+    def __motion_cb(self, event):
+        """
+        Handle a motion event:
+          - move this object to the new location
+          - record the new drag coordinates
+        """
+        self.move(event.x-self.__drag_x, event.y-self.__drag_y)
+        self.__drag_x = event.x
+        self.__drag_y = event.y
+
+    def __release_cb(self, event, tag):
+        """
+        Handle a release callback:
+          - unregister motion & button release callbacks.
+          - decide whether they clicked, dragged, or cancelled
+          - call the appropriate handler.
+        """
+        # Unbind the button release & motion callbacks.
+        self._canvas.unbind('<ButtonRelease-%d>' % event.num)
+        self._canvas.unbind('<Motion>')
+
+        # Is it a click or a drag?
+        if (event.time - self.__press.time < 100 and
+            abs(event.x-self.__press.x) + abs(event.y-self.__press.y) < 5):
+            # Move it back, if we were dragging.
+            if self.__draggable and event.num == 1:
+                self.move(self.__press.x - self.__drag_x,
+                          self.__press.y - self.__drag_y)
+            self.__double_click(self, tag)
+        elif event.num == 1:
+            self.__drag()
+
+        self.__press = None
+
+    def __drag(self):
+        """
+        If this ``CanvasWidget`` has a drag callback, then call it;
+        otherwise, find the closest ancestor with a drag callback, and
+        call it.  If no ancestors have a drag callback, do nothing.
+        """
+        if self.__draggable:
+            if 'drag' in self.__callbacks:
+                cb = self.__callbacks['drag']
+                try:
+                    cb(self)
+                except:
+                    print 'Error in drag callback for %r' % self
+        elif self.__parent is not None:
+            self.__parent.__drag()
+
+
+    #def __double_click(self, treeseg, tag):
+    #    current = time.time()
+    #    if current - self._press < 0.5:
+    #        ind = self._lines.index(tag)
+    #        child = self._subtrees[ind]
+    #        self.remove_child(child)
+    #        child['draggable'] = 1
+    #        child.__draggable = 1
+    #    self._press = current
+
+
+    def box_size(self):
+        return self.node().bbox()
+
+class GraphElementWidget(BoxWidget):
+    def __init__(self, canvas, child, text, **attribs):
+        self.box = BoxWidget.__init__(self, canvas, child, **attribs)
+        #self.bind_click(self._double_click, 1)
+        #self.bind_drag(self.click)
+        self._text = text
+        self._select = 0
+        self._press = 0
+        self._subtrees = []
+        self._lines = []
+        self._node = self.box
+        self._tree = None
+        self.bind_click(self.click)
+        self._canvas = canvas
+        #self._canvas.tag_bind(self._tags(), '<Double-Button-1>', self.double_click)
+
+    def color(self):
+        self['fill'] = 'yellow'
+
+    #def double_click(self):
+    #    parent = self
+    #    parent._merge.connect(parent)
+    #    self['fill'] = 'red'
+
+    def click(self, node):
+        #current = time.time()
+        if self._select == 1:
+        #    print 111
+            #if self.parent() == None:
+            #    parent = self
+            #else:
+            #    parent = self.parent()
+            parent = self
+            #print parent
+            parent._merge.connect(parent)
+            self._select = 2
+            #self.parent()._anc.rollback(self)
+            self['fill'] = 'red'
+            #print 'MergeMergeMerge', self._merge.merge
+        elif self._select == 2:
+            node['fill'] = 'green'
+            self._select = 0
+        else:
+            node['fill'] = 'yellow'
+            self._select = 1
+            self.parent()._anc.select(self)
+            lex_list = word_to_features(self._text)
+            for item in lex_list:
+                print item
+            #print lex_list
+        #self._press = current
+
+    def set_merge(self, tree):
+        self._merge = tree
+
+    def set_tree(self, tree):
+        self._tree = tree
+
+    def set_leaf(self, tree):
+        if isinstance(tree, basestring):
+            raise TypeError("\n")
+        self._tree = tree
+
+    def reset(self):
+        self._select = 0
+        self['fill'] = 'green'
+
+    def select(self):
+        self._select = 1
+        self['fill'] = 'yellow'
+
+class GraphWidget(TreeWidget):
+    def __init__(self, canvas, t, merge, top, parent, make_node=TextWidget, **attribs):
+
+        self._l = []
+        self._merge = merge        
+        self._parent = parent
+        self.tree_set = merge.tset()
+        self.tw = TreeWidget.__init__(self, canvas, t, make_node,
+                            make_node, **attribs)
+        self._top = top
+        self._xy_map = {}
+        self._make_xy_map()
+
+        self._canvas = canvas
+        self._select = False
+        self._press = 0
+        for leaf in self._l:
+            leaf.set_merge(self._merge)
+
+        for tseg in self._expanded_trees.values():
+            tseg.node().set_merge(self._merge)
+
+        self.__press = None
+        self.__drag_x = self.__drag_y = 0
+        self.__callbacks = {}
+        self.__draggable = 1
+        self['draggable'] = 1
+        self._ltconnect = defaultdict(list)
+        self._line_tags = defaultdict(list)
+        self._element_tags = {}
+
+        for tseg in self._expanded_trees.values():
+            self._ltconnect[tseg] += tseg._subtrees
+            self._line_tags[tseg] += tseg._tags()
+        
+        """
+        for tseg in self._expanded_trees.values():
+            self._element_tags[tseg] = tseg.node().child()._tags()
+        for leaf in self._l:
+            self._element_tags[leaf] = leaf.child()._tags()
+        """
+
+        for i in self._line_tags:
+            for tag in self._line_tags[i]:
+                self._canvas.tag_bind(tag, '<ButtonPress-1>',
+                                       lambda event, line=tag:self.__press_cb(event, line))
+
+        for i in self._element_tags:
+            for tag in  self._element_tags[i]:
+                self._canvas.tag_bind(tag, '<ButtonPress-1>',
+                                       lambda event, line=tag:self.__press_cb(event, line))
+
+            #self._canvas.tag_bind(tag, '<ButtonPress-2>',
+            #                       self.__press_cb)
+            #self._canvas.tag_bind(tag, '<ButtonPress-3>',
+            #                       self.__press_cb)
+    """
+    def merge(self, tree):
+        if len(merge) > 0:
+            oldtree = merge.pop()
+            parent = oldtree
+            child = tree
+            parent._add_child_widget(child)
+            parent._lines.append(self.canvas().create_line(0,0,0,0, fill='#006060'))
+            parent.update(parent._node)
+            parent.insert_child(0, child)
+        else:
+            merge.append(tree)
+    """
+
+    def __press_cb(self, event, tag):
+        """
+        Handle a button-press event:
+          - record the button press event in ``self.__press``
+          - register a button-release callback.
+          - if this CanvasWidget or any of its ancestors are
+            draggable, then register the appropriate motion callback.
+        """
+        # If we're already waiting for a button release, then ignore
+        # this new button press.
+        if (self._canvas.bind('<ButtonRelease-1>') or
+            self._canvas.bind('<ButtonRelease-2>') or
+            self._canvas.bind('<ButtonRelease-3>')):
+            return
+
+        # Unbind motion (just in case; this shouldn't be necessary)
+        self._canvas.unbind('<Motion>')
+
+        # Record the button press event.
+        self.__press = event
+
+        # If any ancestor is draggable, set up a motion callback.
+        # (Only if they pressed button number 1)
+        if event.num == 1:
+            widget = self
+            while widget is not None:
+                if widget['draggable']:
+                    widget._start_drag(event)
+                    break
+                widget = widget.parent()
+
+        #self.__callbacks[1] = self._double_click
+        # Set up the button release callback.
+        self._canvas.bind('<ButtonRelease-%d>' % event.num,
+                          lambda event, line=tag:self.__release_cb(event, line))
+
+    def _start_drag(self, event):
+        """
+        Begin dragging this object:
+          - register a motion callback
+          - record the drag coordinates
+        """
+        self._canvas.bind('<Motion>', self.__motion_cb)
+        self.__drag_x = event.x
+        self.__drag_y = event.y
+        x = self.canvas().canvasx(event.x)
+        y = self.canvas().canvasy(event.y)
+        #for tseg in self._xy_map:
+        #    if x > self._xy_map[tseg][0] and x < self._xy_map[tseg][2]:
+        #        if y > self._xy_map[tseg][1] and x < self._xy_map[tseg][3]:
+        #            print tseg
+        #print x, y
+        #print event.x, event.y
+        #for i in self._xy_map:
+        #    print i, self._xy_map[i]
+
+    def __motion_cb(self, event):
+        """
+        Handle a motion event:
+          - move this object to the new location
+          - record the new drag coordinates
+        """
+        self.move(event.x-self.__drag_x, event.y-self.__drag_y)
+        self.__drag_x = event.x
+        self.__drag_y = event.y
+
+    def __release_cb(self, event, tag):
+        """
+        Handle a release callback:
+          - unregister motion & button release callbacks.
+          - decide whether they clicked, dragged, or cancelled
+          - call the appropriate handler.
+        """
+        # Unbind the button release & motion callbacks.
+        self._canvas.unbind('<ButtonRelease-%d>' % event.num)
+        self._canvas.unbind('<Motion>')
+
+        # Is it a click or a drag?
+        if (event.time - self.__press.time < 100 and
+            abs(event.x-self.__press.x) + abs(event.y-self.__press.y) < 5):
+            # Move it back, if we were dragging.
+            if self.__draggable and event.num == 1:
+                self.move(self.__press.x - self.__drag_x,
+                          self.__press.y - self.__drag_y)
+            self.__double_click(self, tag)
+        elif event.num == 1:
+            self.__drag()
+
+        self.__press = None
+
+    def __drag(self):
+        """
+        If this ``CanvasWidget`` has a drag callback, then call it;
+        otherwise, find the closest ancestor with a drag callback, and
+        call it.  If no ancestors have a drag callback, do nothing.
+        """
+        if self.__draggable:
+            if 'drag' in self.__callbacks:
+                cb = self.__callbacks['drag']
+                try:
+                    cb(self)
+                except:
+                    print 'Error in drag callback for %r' % self
+        #elif self.__parent is not None:
+        #    self.__parent.__drag()
+
+    def __double_click(self, treeseg, tag):
+        #import random
+        current = time.time()
+        if current - self._press < 0.5:
+            for i in self._line_tags:
+                for j in range(0, len(self._line_tags[i])):
+                    if tag == self._line_tags[i][j]:
+                        parent = i
+                        child = self._ltconnect[i].pop(j)
+                        for k in range(0, len(parent._tree)):
+                            if parent._tree[k] == child._tree:
+                                parent._tree.pop(k)
+                                break
+                        if isinstance(child._tree, basestring):
+                            child._tree = Tree(child._tree, [])
+                        self.tree_set.append(child._tree)
+                        self._parent.redraw()
+                        #parent.remove_child(child)
+                        child['draggable'] = 1
+                        #child.__parent = parent.parent()
+        self._press = current
+
+    """
+    def _tags(self):
+        tags = []
+        for tseg in self._expanded_trees.values():
+            tags += tseg._tags()
+            tags += tseg.node()._tags()
+            tags += tseg.node().child()._tags()
+        for leaf in self._l:
+            tags += leaf._tags()
+            tags += leaf.child()._tags()
+        return tags
+    """
+    def _make_xy_map(self):
+        #for tseg in self._expanded_trees.values():
+        #    self._xy_map[tseg] = tseg.box_size()
+        #for leaf in self._l:
+        #    self._xy_map[leaf] = leaf.bbox()
+        for tseg in self._expanded_trees.values():
+            self._xy_map[tseg] = self.canvas().coords(tseg.node()._tags()[0])
+            #print self._xy_map[tseg]
+        for leaf in self._l:
+            self._xy_map[leaf] = leaf.bbox()
+
+    def _make_expanded_tree(self, canvas, t, key):
+        make_node = self._make_node
+        make_leaf = self._make_leaf
+
+        if isinstance(t, Tree):
+            node = make_node(canvas, t.node, **self._nodeattribs)
+            node.set_tree(t)
+            self._nodes.append(node)
+            children = t
+            subtrees = [self._make_expanded_tree(canvas, children[i], key+(i,))
+                        for i in range(len(children))]
+            treeseg = GraphSegmentWidget(canvas, node, subtrees, t, self._parent, self._merge, 
+                                        color=self._line_color,
+                                        width=self._line_width)
+            self._expanded_trees[key] = treeseg
+            self._keys[treeseg] = key
+            return treeseg
+        else:
+            leaf = make_leaf(canvas, t, **self._leafattribs)
+            leaf.set_leaf(t)
+            self._leaves.append(leaf)
+            self._l.append(leaf)
+            return leaf
+
+    def _make_collapsed_trees(self, canvas, t, key):
+        if not isinstance(t, Tree): return
+        make_node = self._make_node
+        make_leaf = self._make_leaf
+
+        node = make_node(canvas, t.node, **self._nodeattribs)
+        node.set_tree(t)
+        self._nodes.append(node)
+        leaves = [make_leaf(canvas, l, **self._leafattribs)
+                  for l in t.leaves()]
+        for i in range(0, len(leaves)):
+            leaves[i].set_leaf(t.leaves()[i])
+        self._leaves += leaves
+        treeseg = GraphSegmentWidget(canvas, node, leaves, t, self._parent, self._merge, 
+                                    roof=1, color=self._roof_color,
+                                    fill=self._roof_fill,
+                                    width=self._line_width)
+
+        self._collapsed_trees[key] = treeseg
+        self._keys[treeseg] = key
+        #self._add_child_widget(treeseg)
+        treeseg.hide()
+
+        # Build trees for children.
+        for i in range(len(t)):
+            child = t[i]
+            self._make_collapsed_trees(canvas, child, key + (i,))
 
 class TAGTreeSegmentWidget(TreeSegmentWidget):
     """
@@ -304,7 +909,7 @@ class TAGTreeSetView(object):
             self._top.bind('<Control-q>', self.destroy)
             self._top.geometry("1400x800")
         else:
-            self._top = parent
+            self._top = parent[0]
 
         frame = Frame(self._top)
 
@@ -358,7 +963,10 @@ class TAGTreeSetView(object):
         xsb = ttk.Scrollbar(self._frame, orient=HORIZONTAL, command=self._tagview.xview)
         self._tagview['yscroll'] = ysb.set
         self._tagview['xscroll'] = xsb.set
-        self._tagview.bind('<<TreeviewSelect>>', self.display)
+        if parent:
+            self._tagview.bind('<<TreeviewSelect>>', parent[1])
+        else:
+            self._tagview.bind('<<TreeviewSelect>>', self.display)
         self.populate_tree('', self._trees)
         self._tagview.configure(xscrollcommand=xsb.set,
                                 yscrollcommand=ysb.set)
@@ -782,13 +1390,98 @@ def xtag_parser(txt):
     :param txt is a string describing TAG trees, the form is defined in
     UPenn Xtag project
     """
-    arglist = fifth_pass(fourth_pass(third_pass(second_pass(first_pass(txt)))))
+    arglist = analyze_tree_5(analyze_tree_4(analyze_tree_3(analyze_tree_2(analyze_tree_1(txt)))))
     tagset = TAGTreeSet()       
     for element in arglist:
         new_tree = _parse_tree_list(element[2], element[4])
         tree_name = element[0]
         tagset[tree_name] = new_tree
     return tagset
+
+class DependencyGraphView(TAGTreeSetView):
+    def __init__(self, trees, tagset):
+
+        TAGTreeSetView.__init__(self, tagset)
+        """
+        self._top = Tk()
+        self._top.title('NLTK')
+        self._top.bind('<Control-p>', lambda e: self.print_to_file())
+        self._top.bind('<Control-x>', self.destroy)
+        self._top.bind('<Control-q>', self.destroy)
+        #"""
+        self._cframe = CanvasFrame(self._top)
+        self._widgets = []
+        self._merge = TreeMerge([trees], self)
+        self._tset = self._merge.tset()
+        self._ps = None
+        self._os = None
+
+
+    def redraw(self):
+        """
+        Update the current canvas to display another tree, set te feature
+        sturctures to display or hidden.
+
+        :param show: a boolean value for whether to show the feature
+        sturcture on the canvas
+        :param trees: a list of tree segments
+        """
+        for i in self._widgets:
+            self._cframe.destroy_widget(i)
+        self._size = IntVar(self._top)
+        self._size.set(12)
+        bold = ('helvetica', -self._size.get(), 'bold')
+        helv = ('helvetica', -self._size.get())
+
+        self._width = 0
+        for i in self._tset:
+            self._width += int(ceil(sqrt(len(i))))
+        self._widgets = []
+        for i in range(len(self._tset)):
+        #    print trees[i]
+            #if isinstance(trees[i], TAGTree):
+            #    fs = trees[i].get_all_fs()
+            #else:
+            #    fs = None
+            widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+                             self._top, self, self.boxit)
+            #widget.set_parent_window(self._top)
+            self._widgets.append(widget)
+            self._cframe.add_widget(widget, 0, 0)
+
+        self._layout()
+        self._cframe.pack(expand=1, fill='both', side = LEFT)
+        self._init_menubar()
+
+    def boxit(self, canvas, text):
+        big = ('helvetica', -16, 'bold')
+        return GraphElementWidget(canvas, TextWidget(canvas, text,
+                                            font=big), text, fill='green')
+
+    def select(self, element):
+        if self._ps == None:
+            self._ps = element
+            self._os = self._ps
+            return
+        if self._ps == element or self._ps._select == 2:
+            return
+        self._ps.reset()
+        self._os = self._ps
+        self._ps = element
+
+    def rollback(self, element):
+        if self._os == None:
+            return
+        self._os = None
+        self._ps = None
+        #self._ps.select()
+
+
+    #def ovalit(canvas, text):
+    #    return OvalWidget(canvas, TextWidget(canvas, text),
+                          #fill='cyan')
+    #treetok = Tree.parse('(S (NP this tree) (VP (V is) (AdjP shapeable)))')
+    #tc2 = GraphWidget(cf.canvas(), treetok, boxit, boxit)
 
 class TAGTree(Tree):
     """
@@ -979,6 +1672,91 @@ class TAGTree(Tree):
             for child in last:
                 if isinstance(child, TAGTree):
                     nodes.append(child)
+
+    def leaves(self):
+        leaves = []
+        if len(self) == 0:
+            leaves.append(self)
+        for child in self:
+            leaves.extend(child.leaves())
+        return leaves
+
+    def cancel_substitution(self):
+        if self.attr == 'subst':
+            self.attr = None
+        else:
+            raise TypeError("n")
+
+    def get_substitution_node(self):
+        sub = []
+        for leaf in self.leaves():
+            if leaf.attr == 'subst':
+                sub.append(leaf)
+        return sub
+
+    def at_anchor_left(self, tree):
+        tree_name = tree.node
+        self._leaves = self.leaves()
+        sub_node = self.get_substitution_node()
+        ind = self._leaves.index(sub_node)
+        left_node = self._leaves[ind-1]
+        if left_node.node == tree_name:
+            return True
+        else:
+            return False
+
+    def prefix_search(self, tree_name):
+        trees = []
+        name = self.node.split('_')
+        if len(name) > 1:
+            prefix = name[0]
+        if prefix == prefix:
+            trees.append(self)
+        for child in self:
+            trees.extend(child.search())
+        return trees
+
+    def delete_all_child(self):
+        result = []
+        while(len(self)) > 0:
+            self.pop()
+
+    def cancel_adjunction(self):
+        if self.attr == 'foot':
+            self.attr = None
+        else:
+            raise TypeError("n")
+
+    def search(self, tree_name):
+        if self.node == tree_name:
+            return self
+        else:
+            for child in self:
+                tree = child.search(tree_name)
+                if tree != None:
+                    return tree
+        return None
+
+    def get_child_node(self):
+        return [child for child in self]
+
+    def append_new_child(self, tree):
+        self.append(tree)
+
+    def get_top_feature(self):
+        return self.top_fs
+
+    def get_bottom_feature(self):
+        return self.bot_fs
+
+    def set_bottom_feature(self, fs):
+        self.bot_fs[key]['__or_'+value] = value
+
+    def get_foot_node(self):
+        for leaf in self.leaves():
+            if leaf.attr == 'foot':
+                return leaf
+        return None        
 
 def _fs_name(node_name, top):
     try:
@@ -1228,8 +2006,10 @@ def parse_from_files(cata, files):
     file_names = tree_list[0]
     directory = tree_list[1]
     for fn in file_names:
-        path = directory + os.sep + fn
-        text = open(path).read()
+        path = 'xtag_grammar' + os.sep + directory + os.sep + fn
+        #print path
+        text = nltk.data.find(path).open().read()
+        #text = open(path).read()
         tagset[files][fn] = TAGTreeSet()
         tagset[files][fn] += xtag_parser(text)
  
@@ -1239,14 +2019,29 @@ def demo():
     from util import xtag_parser
     from util import parse_from_files
 
-    cata = get_catalog('../xtag-english-grammar/english.gram')
+    cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
+    cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
-    #t = TAGTreeSet()
     t = parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
     t.set_start_fs(sfs)
-    t.view()
+    for i in t['family-files']['Tnx0ARBPnx1.trees']:
+        tree = t['family-files']['Tnx0ARBPnx1.trees'][i]
+    #print tree.get_substitution_node()
+    A = TAGTree('P',[])
+    print tree.search('S_r').get_bottom_feature()
+    print tree.search('VP').get_top_feature()
+    print id(tree.search('VP').get_top_feature()['mode'])
+    print id(tree.search('S_r').get_bottom_feature()['mode'])
+    tree.search('S_r').set_bottom_feature('mode', '1')
+    print tree.search('S_r').get_bottom_feature()
+    print tree.search('VP').get_top_feature()
+    #print tree
+    tree.draw()
+    #print t['family-files']['Tnx0ARBPnx1.trees']['nx0ARBPnx1-PRO']#.view()
+    #t.view()
 
 
 if __name__ == '__main__':
     demo()
+    #load()
