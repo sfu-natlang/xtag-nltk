@@ -29,7 +29,6 @@ def load():
     cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
     
     cata = get_catalog(cata_str)
-    print cata
     sfs = get_start_feature(cata)
     t = parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
@@ -50,15 +49,14 @@ def load():
     temp_str = nltk.data.find(temp_path).open().read()
     default_str = nltk.data.find(default_path).open().read()
 
-    print default_str
-    print syn_str
-
     init(morph_str, syn_str, temp_str, default_str)
 
-    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
-    treetok = graph_parse(treetok)
-    graph = DependencyGraphView(treetok, t)
-    graph.mainloop()  
+    return t
+
+#    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
+#    treetok = graph_parse(treetok)
+#    graph = DependencyGraphView(treetok, t)
+#    graph.mainloop()  
 
 def debug():
     cata = get_catalog('../xtag-english-grammar/english.gram')
@@ -308,6 +306,7 @@ class GraphSegmentWidget(TreeSegmentWidget):
     #        child = self._subtrees[ind]
     #        self.remove_child(child)
     #        child['draggable'] = 1
+
     #        child.__draggable = 1
     #    self._press = current
 
@@ -362,8 +361,6 @@ class GraphElementWidget(BoxWidget):
             self._select = 1
             self.parent()._anc.select(self)
             lex_list = word_to_features(self._text)
-            for item in lex_list:
-                print item
             #print lex_list
         #self._press = current
 
@@ -2033,7 +2030,7 @@ def demo():
     #print tree.search('VP').get_top_feature()
     #print id(tree.search('VP').get_top_feature()['mode'])
     #print id(tree.search('S_r').get_bottom_feature()['mode'])
-    #tree.search('S_r').set_bottom_feature('mode', '1')
+    tree.search('S_r').set_bottom_feature('mode', '1')
     #print tree.search('S_r').get_bottom_feature()
     #print tree.search('VP').get_top_feature()
     #print tree
