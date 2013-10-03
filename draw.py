@@ -6,7 +6,6 @@
 # URL: <http://www.nltk.org/>
 # For license information, see LICENSE.TXT
 #
-
 import os
 import copy
 
@@ -33,33 +32,105 @@ class LexView(object):
         self._top.bind('<Control-q>', self.destroy)
         self._top.geometry("1400x800")
 
-        frame = Frame(self._top)
+        self.frame = Frame(self._top)
 
         v = StringVar()
-        self._e = Entry(frame, textvariable=v)
+        self._e = Entry(self.frame, textvariable=v)
         self._e.bind("<Return>", self.return_pressed)
-        all_button = Button(frame, text='Show All', command=self.show_all)
-        button = Button(frame, text="Search", command=self.search)
+        all_button = Button(self.frame, text='Show All', command=self.show_all)
+        button = Button(self.frame, text="Search", command=self.search)
         self._e.pack(expand=1, fill='both', side=LEFT)
 
-        phrases = StringVar()
-        phrases.set("")
-        w = OptionMenu(frame, phrases, "one", "two", "three")
-        w.pack(side=RIGHT)
-        wl = Label(frame, text='multi-word:')
+        self.phrases = StringVar()
+        self.phrases.set("")
+        update_button = Button(self.frame, text="Update", command=self.update_word)
+        self._w = OptionMenu(self.frame, self.phrases, [])
+        update_button.pack(side=RIGHT)
+        self._w.pack(side=RIGHT)
+        wl = Label(self.frame, text='multi-word:')
         wl.pack(side=RIGHT)
         
         all_button.pack(side=RIGHT)
         button.pack(side=RIGHT)
-        frame.pack(fill='both')
+        self.frame.pack(fill='both')
         
         self._tagset = alltrees
         self._alltrees = alltrees
-        self._treeview = TAGTreeSetView(self._tagset, self._top)
+        self._treeview = TAGTreeSetView(self._tagset, (self._top, self.display))
         self._treeview.pack()
+        self._dicword = {}
+        self._count = {}
+
+    def display(self, event=None):
+        #self._treeview.display()
+        node = self._treeview._tagview.focus()
+        path = self._treeview._tagview.set(node, "fullpath").split('/')
+        tree = self._treeview._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                if not isinstance(tree, type(self._treeview._trees)):
+                    if tree._lex:
+                        tree[subpath] = tree[subpath].copy(True)
+
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+
+        if not isinstance(tree, type(self._treeview._trees)):
+            if tree._lex:
+                tree.lexicalize()
+                tree._lex = False
+                self._treeview._tw.redraw(self._treeview._show_fs, tree)
+            else:
+                self._treeview._tw.redraw(self._treeview._show_fs, tree)
+        else:
+            for path in tree:
+                if isinstance(tree[path], type(self._treeview._trees)):
+                    return
+            self.phrases.set("")
+            treename = subpath[:-6]
+            words = tree_to_words(treename)
+            self.clean_option()
+
+            for choice in words:
+                phrase = ''
+                for term in choice:
+                    phrase = phrase + term[0] + ' '
+                self._dicword[phrase] = choice
+                import Tkinter as tk
+                self._w['menu'].add_command(label=phrase, command=tk._setit(self.phrases, phrase))
+
+    def clean_option(self):
+        self._dicword = {}
+        self._w['menu'].delete(0, 'end')        
+
+    def update_word(self):
+        words = self.phrases.get().split()
+        if len(words) == 0:
+            return
+        self._tagset = TAGTreeSet()
+        self._treeview.clear()
+        for word in words:
+            self._tagset[word] = TAGTreeSet()
+            fset = self._tagset[word]
+            lex_list = word_to_features(word)
+            self._lex_tag_set(lex_list, fset)
+            for morph in lex_list:
+                if len(morph[0]) > 1:
+                    phrases = [v[0] for v in morph[0]]
+                    if all(phrase in words for phrase in phrases):
+                        index = ''
+                        for i in phrases:
+                            index = index + i + ' '
+                        self._tagset[index] = TAGTreeSet()
+                        fset = self._tagset[index]
+                        self._lex_tag_set([morph], fset)
+        self._treeview.update(self._tagset)
         self._count = {}
 
     def return_pressed(self, event):
+        self.clean_option()
         words = self._e.get().split()
         if len(words) == 0:
             self.show_all()
@@ -76,6 +147,7 @@ class LexView(object):
         """
         Show all the TAG Tree in window
         """
+        self.clean_option()
         self._e.delete(0, END)
         self._tagset = self._alltrees
         self._treeview.clear()
@@ -83,6 +155,7 @@ class LexView(object):
         return
     
     def search(self):
+        self.clean_option()
         words = self._e.get().split()
         if len(words) == 0:
         #    self.show_all()
@@ -189,7 +262,7 @@ class LexView(object):
                             index = sub
                     if not index:
                         raise NameError('No tree fmaily')
-                    sset[key] += self._alltrees[index][tf].copy(False)
+                    sset[key] += self._alltrees[index][tf].copy(True)
                     for t in sset[key]:
                         if sset[key][t]._lex:
                             sset[key][t]._lex_fs
@@ -226,20 +299,7 @@ class LexView(object):
 
 
 def demo():
-    cata = get_catalog('../xtag-english-grammar/english.gram')
-    sfs = get_start_feature(cata)
-    t = parse_from_files(cata, 'tree-files')
-    t += parse_from_files(cata, 'family-files')
-    t.set_start_fs(sfs)
-    morph = get_file_list(cata, 'morphology-files')
-    syn = get_file_list(cata, 'lexicon-files')
-    temp = get_file_list(cata, 'templates-files')
-    default = get_file_list(cata, 'syntax-default')
-    morph_path = morph[1]+morph[0][0]
-    syn_path = syn[1]+syn[0][0]
-    temp_path = temp[1]+temp[0][0]
-    default_path = default[1]+default[0][0]
-    init(morph_path, syn_path, temp_path, default_path)
+    t = load()
     viewer = LexView(t)
     viewer.mainloop()
 

@@ -1,4 +1,3 @@
-
 # Natural Language Toolkit: Tree-Adjoining Grammar
 #
 # Copyright (C) 2001-2013 NLTK Project
@@ -1595,7 +1594,7 @@ def init(morph,syntax,temp,default):
 
     #fp = open(syntax)
     s = syntax
-    #s += "\n" + default_syntax
+    s += "\n" + default_syntax
     # syntax_dict[0] is the dict for forward query, i.e. from word to trees and to feature structures
     # and syntax_dict[1] is the dict for reverse query, i.e. from tree name to entries (word or words)
     syntax_dict = analyze_syntax(s)
