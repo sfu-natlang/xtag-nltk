@@ -26,7 +26,7 @@ import time
 import nltk.data
 
 def load():
-    cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
+    cata_str = nltk.data.find('xtag_grammar/english.gram.orig').open().read()
     
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
