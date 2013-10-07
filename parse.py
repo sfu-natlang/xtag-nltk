@@ -6,10 +6,71 @@
 # URL: <http://www.nltk.org/>
 # For license information, see LICENSE.TXT
 #
-
 from nltk.parse.nonprojectivedependencyparser import *
+from nltk.classify.naivebayes import *
+from nltk.tokenize import word_tokenize
+from nltk import pos_tag
 import pickle
 from copy import deepcopy
+import nltk.data
+
+class XTAGScorer(NaiveBayesDependencyScorer):
+    """
+    A dependency scorer built around a MaxEnt classifier.  In this
+    particular class that classifier is a ``NaiveBayesClassifier``.
+    It uses head-word, head-tag, child-word, and child-tag features
+    for classification.
+    """
+
+    def __init__(self, label_freqdist, feature_probdist):
+        self.label_freqdist = label_freqdist
+        self.feature_probdist = feature_probdist
+
+    def train(self, graphs):
+        self.classifier = NaiveBayesClassifier(self.label_freqdist, self.feature_probdist)
+
+
+def nonprojective_parse(sent):
+    words = word_tokenize(sent)
+    tag_tuples = pos_tag(words)
+    tags = [tag for word, tag in tag_tuples]
+    label_freqdist, feature_probdist = restore()
+    npp = ProbabilisticNonprojectiveParser()
+    npp.train([], XTAGScorer(label_freqdist, feature_probdist))
+    parse_graph = npp.parse(words, tags)
+    print parse_graph
+
+
+def dump():
+    string = ''
+    import os
+    #directory = os.path.join('/Users/zhanghaotian/Downloads/','penn-wsj-deps')
+    for root,dirs,files in os.walk(directory):
+        for d in dirs:
+            if d != '00' and d!= '01' and d!='22' and d!='23' and d!='24':
+                direct = os.path.join(directory, d)
+                for root,dirs,files in os.walk(direct):
+                    for f in files:
+                        f = os.path.join(direct,f)
+                        fp = open(f, 'r').readlines()
+                        for a in fp:
+                            string += a
+    graphs = [DependencyGraph(entry)
+              for entry in string.split('\n\n') if entry]
+    npp = ProbabilisticNonprojectiveParser()
+    npp.train(graphs, NaiveBayesDependencyScorer())
+    label_freqdist = npp._scorer.classifier._label_probdist
+    feature_probdist = npp._scorer.classifier._feature_probdist
+    #print_train_data(label_freqdist, feature_probdist, 'data.txt')
+    dump_to_disk('lfd', label_freqdist)
+    dump_to_disk('fpd', feature_probdist)
+
+def restore():
+    lfd = nltk.data.find('xtag_grammar/pickles/lfd').open()
+    fpd = nltk.data.find('xtag_grammar/pickles/fpd').open()
+    label_freqdist = restore_from_disk(lfd)
+    feature_probdist = restore_from_disk(fpd)
+    return (label_freqdist, feature_probdist)
 
 def dump_to_disk(filename,obj):
     """
@@ -357,5 +418,5 @@ def debug_check_name_equality():
     print check_name_equality('S_r',"Ss")
     
 if __name__ == '__main__':
-    debug_check_name_equality()
-
+#    debug_check_name_equality()
+    nonprojective_parse('Chicago\'s new school chief is the hard-nosed Ted Kimbrough.')
