@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Natural Language Toolkit: Tree-Adjoining Grammar
 #
 # Copyright (C) 2001-2013 NLTK Project
@@ -715,6 +716,43 @@ def get_start_feature(node):
 # Feature Structure Function For Future Use #############
 #########################################################
 
+def modify_feature_reference(feature,path,ref):
+    """
+    Change the reference of a node
+
+    :param feature: The feature structure to change
+    :type feature: FeatStruct
+
+    :param path: The path in the feature structure to change
+    :type path: list(str)
+
+    :param ref: Anything that will be put to the path as the reference
+    :type ref: Any Object
+
+    This function is almost the same as modify_feature_entry, except that
+    it will only change the reference.
+
+    This function will change the feature structure in-place.
+    
+    e.g. fs = [apple = [orange = [__or_wzq = 'wzq']]]
+                       [         [__or_123 = '123']]]
+         path = ['apple','orange']
+         ref = [__or_qwer = 'qwer']
+         modify_feature_reference(fs,path,ref) ->
+                       [apple = [orange = [__or_qwer = 'qwer']]         
+    """
+    current_fs = feature
+    # Only go (n-1) steps, where n is the length of the path
+    for node in path[:-1]:
+        if current_fs.has_key(node):
+            current_fs = current_fs[node]
+        else:
+            raise KeyError('No such node %s in the feature structure' % (node))
+
+    current_fs[path[-1]] = ref # Change the reference
+    
+    return  
+
 def modify_feature_entry(feature,path,rhs,lhs=None):
     """
     modify_feature_entry(FeatStruct,list,str,str) -> FeatStruct
@@ -852,7 +890,58 @@ def get_element_by_path(fs,path):
         else:
             return None
     return current_fs
-    
+
+def restore_reference(new_feat,old_feat_1,old_feat_2):
+    """
+    Restore the reference relationship after doing unify to a feature structure.
+
+    :param new_feat: The feature structure after unification
+    :type new_feat: FeatStruct
+
+    :param old_feat_1: One of the feature structure before unification
+    :type old_feat_1: FeatStruct
+
+    :param old_feat_2: Another feature structure before unification
+    :type old_feat_2: FeatStruct
+
+    :return: The modified feature strucrture
+    :rtype: FeatStruct
+
+    This function is used to solve the problem that in the feature structure set
+    of a tree, which consists of many feature structures of different nodes, where
+    many of the structures share the same RHS value, and these value is repersented
+    by independent feature structures, i.e. the '__or_' entity. But the unification
+    routine provided by the NLTK library will not consider these references, and
+    it only re-creates everything and will not do a in-place change. So we need
+    to restore these references.
+
+    To do this we only need to compare between the new and old feature structures
+    and copy the reference if they share common paths, or create new enteies.
+    """
+    path_1 = get_all_path(old_feat_1)
+    path_2 = get_all_path(old_feat_2)
+    for i in path_1:
+        new_entry = get_element_by_path(new_feat,i)
+        if new_entry != None:  # That path exists
+            old_entry = get_element_by_path(old_feat_1,i) # Must return a result
+            # If there is __or_ then these two can be different so we must check
+            # But __or_ may also produce a brand-new feature struct, in this case
+            # no work should be done.
+            # e.g. [__or_123 = '123']
+            #      [__or_456 = '456'] unified with [__or_456 = '456']
+            # will return exactly the first one, and the reference goes to
+            # the first one. But if [__or_123 = '123'] and [__or_456 = '456']
+            # are unified, then the result is independent of both.
+            if old_entry == new_entry:  
+                modify_feature_reference(new_feat,i,old_entry)
+
+    for i in path_2:
+        new_entry = get_element_by_path(new_feat,i)
+        if new_entry != None:
+            old_entry = get_element_by_path(old_feat_2,i)
+            if old_entry == new_entry:
+                modify_feature_reference(new_feat,i,old_entry)
+    return
 
 def fill_in_empty_entry(fs1,fs2):
     """
@@ -1690,13 +1779,34 @@ def debug_fill_in_empty_entry():
     debug_start_feature['mode'] = copy.deepcopy(empty_feature)
     print fs_test
     print '***********************************************'
-    print debug_start_feature  
+    print debug_start_feature 
     fill_in_empty_entry(debug_start_feature,fs_test)
     fill_in_empty_entry(fs_test,debug_start_feature)
     print '***********************************************'
     print fs_test
     print '***********************************************'
     print debug_start_feature   
+
+def debug_modify_feature_referece():
+    modify_feature_reference(debug_start_feature,['punct','term'],'sdsdsdsd')
+    print debug_start_feature
+
+def debug_restore_reference():
+    fs100 = FeatStruct()
+    fs101 = FeatStruct()
+    fs101['__or_1233454'] = '1233454'
+    fs100['wzqqqqq'] = fs101
+    fs102 = FeatStruct()
+    fs102['sdsd'] = fs101
+    result = debug_start_feature.unify(fs100)
+    restore_reference(result,debug_start_feature,fs100)
+    print result
+    print '==================='
+    result['wzqqqqq']['sdsd'] = 'ererer'
+    print fs102
+    print '==================='
+    print result
+    
 
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
@@ -1705,4 +1815,5 @@ if __name__ == "__main__":
     #debug()
     #debug_parse_feature_in_catalog()
     #debug_get_all_path()
-    debug_fill_in_empty_entry()
+    #debug_modify_feature_referece()
+    debug_restore_reference()

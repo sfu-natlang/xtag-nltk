@@ -10,6 +10,7 @@
 from nltk.parse.nonprojectivedependencyparser import *
 import pickle
 from copy import deepcopy
+import load
 
 def dump_to_disk(filename,obj):
     """
@@ -40,7 +41,7 @@ def restore_from_disk(filename):
 
 ####################################
 # Tree Compatibility ###############
-####################################
+#################################### 
 
 def get_name_prefix(name):
     """
@@ -313,7 +314,7 @@ def tree_compatible(tree_1,tree_2,word_list=None,operation='AS'):
     # Convert to upper case
     operation = operation.upper()
     # These two is to make sure the word in tree_1 must be at the left
-    # of tree_2, whild trying all possible combinations
+    # of tree_2, while trying all possible combinations
     # To control if we need to do substitution
     if 'A' in operation:
         sub_1 = check_substitution(tree_1,tree_2,False)
