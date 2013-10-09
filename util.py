@@ -1594,7 +1594,7 @@ class TAGTree(Tree):
         heads = self.get_head()
         for head in heads:
             for m in morph:
-                if head.get_node_name() == m[1]:
+                if head.get_node_name().replace('_', '') == m[1]:
                     lex = TAGTree(m[0], [], 'lex')
                     head.set_children(lex)
                     all_fs = self.get_all_fs()
