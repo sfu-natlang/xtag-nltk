@@ -8,7 +8,8 @@
 # For license information, see LICENSE.TXT
 #
 
-import feature
+from feature import *
+from nltk.featstruct import *
 
 ###########################################
 # LL Parser for catalog file ##############
@@ -1170,19 +1171,6 @@ def debug_get_path_list():
     path = 'Ad_f.t:<compar other wzq>'
     print get_path_list(path)
 
-fs1 = FeatStruct()
-fs2 = FeatStruct()
-fs3 = FeatStruct()
-fs4 = FeatStruct()
-fs4['more'] = fs3
-fs2['__or_a'] = 'a'
-fs2['__or_wzq'] = 'wzq'
-fs2['__or_qwe'] = 'qwe'
-fs1['apple'] = fs2
-fs1['orange'] = fs4
-fs3['__or_zxcv'] = 'zxcv'
-fs3['__or_4567'] = '4567'
-
 def debug_merge_fs():
     print fs1.unify(fs2)
 
@@ -1194,9 +1182,7 @@ def debug_modify_feature_entry():
     print '-------------------------'
     print fs1
 
-debug_start_feature = parse_feature_in_catalog('<mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil')
-empty_feature = FeatStruct()
-empty_feature['__or_'] = ''
+
 
 def debug_parse_feature_in_catalog():
     print debug_start_feature
@@ -1243,7 +1229,16 @@ def debug_restore_reference():
     print fs102
     print '==================='
     print result
-    
+
+def debug_test_contain():
+    fs100 = FeatStruct()
+    fs101 = FeatStruct()
+    fs100['__or_123'] = 123
+    fs101['__or_123'] = 123
+    fs101['__or_456'] = 456
+    fs100['__or_456'] = 456
+    fs100['__or_789'] = 789
+    print test_contain(fs100,fs101)
 
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
@@ -1253,4 +1248,5 @@ if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
     #debug_get_all_path()
     #debug_modify_feature_referece()
-    debug_restore_reference()
+    #debug_restore_reference()
+    debug_test_contain()

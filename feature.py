@@ -99,6 +99,52 @@ def test_empty_entry(fs):
     else:
         return False
 
+def test_contain(fs1,fs2):
+    """
+    Test if one feature structure contains another, i.e. is the super set of another.
+
+    :param fs1: The first feature structure you want to test
+    :type fs1: FeatStruct
+    :param fs2: The second feature structure you wang to test
+    :type fs2: FeatStruct
+    :return: 0 if they are equal to each other
+             1 if fs1 is a subset of fs2
+            -1 if fs2 is a subset of fs1
+             None if there is no contain relationship
+    :rtype: integer
+
+    This function requires that fs1 and fs2 are leaf nodes, if they are not then an
+    an exception will be raised. Besides, since in a leaf node the left hand side
+    is actually derivable from the right hang side, so if we know one we can know
+    another. Based on this observation we just make comparisions to the left hand
+    side, i.e. keys().
+    """
+    if test_leaf(fs1) == False or test_leaf(fs2) == False:
+        raise ValueError('Two arguments must be leaf nodes.')
+    key_1 = fs1.keys()
+    key_2 = fs2.keys()
+    new_key_1 = []
+    new_key_2 = []
+    for i in key_1:
+        if i in key_2:
+            new_key_1.append(i)
+    for i in key_2:
+        if i in key_1:
+            new_key_2.append(i)
+    len_1 = len(key_1)
+    len_2 = len(key_2)
+    new_len_1 = len(new_key_1)
+    new_len_2 = len(new_key_2)
+    
+    if len_1 != new_len_1 and len_2 != new_len_2:
+        return None
+    elif len_1 == new_len_1 and len_2 != new_len_2:
+        return 1 # len_1 not changed, it is contained in len_2
+    elif len_1 != new_len_1 and len_2 == new_len_2:
+        return -1 # len_2 contained in len_1
+    else:
+        return 0 # Neigher has changed, so they are equal
+
 ##############################
 # Node Constructing ##########
 ##############################
@@ -550,6 +596,10 @@ def get_element_by_path(fs,path):
             return None
     return current_fs
 
+##############################
+# Fix Unify Result ###########
+##############################
+
 def restore_reference(new_feat,old_feat_1,old_feat_2):
     """
     Restore the reference relationship after doing unify to a feature structure.
@@ -643,3 +693,71 @@ def fill_in_empty_entry(fs1,fs2):
                     old_value[i] = overwrite_value[i]
                 old_value.pop('__or_') # Remove the '__or_' entry
     return
+
+def special_unify(fs1,fs2):
+    new_fs = FeatStruct()
+    path_2 = get_all_path(fs2)
+    for i in path_2:
+        item_1 = get_element_by_path(fs1,i)
+        if item_1 == None:
+            item_2 = get_element_by_path(fs2,i)
+            add_new_fs(new_fs,i,item_2,1) # ref == 1, we only do reference!!
+        else:
+            item_2 = get_element_by_path(fs2,i)
+            tc = test_contain(item_1,item_2) # Single entry is the same as multiple entry
+            if tc == 1: # t1 is a subset of t2, we always use the smaller one
+                add_new_fs(new_fs,i,item_1,1)
+            elif tc == -1:
+                add_new_fs(new_fs,i,item_2,1)
+            elif tc == 0:
+                new_entry = copy.deepcopy(item_1)
+                add_new_fs(new_fs,i,new_entry,1)
+                pass
+                #TODO: ADD REFERENCE
+            else:
+                return None # Conflict
+            #if i[0] == 'comp': print tc
+
+    # We do not need to check when item_2 != None, because we have already
+    # done it in the first loop. In other words, we have processed the overlapping
+    # paths, and what is left is to add those in fs1 but not in fs2 into the
+    # new feature structure
+    path_1 = get_all_path(fs1)
+    for i in path_1:
+        item_2 = get_element_by_path(fs2,i)
+        if item_2 == None:
+            item_1 = get_element_by_path(fs1,i)
+            add_new_fs(new_fs,i,item_1,1)
+            
+    return new_fs
+
+fs1 = FeatStruct()
+fs2 = FeatStruct()
+fs3 = FeatStruct()
+fs4 = FeatStruct()
+fs4['more'] = fs3
+fs2['__or_a'] = 'a'
+fs2['__or_wzq'] = 'wzq'
+fs2['__or_qwe'] = 'qwe'
+fs1['apple'] = fs2
+fs1['orange'] = fs4
+fs3['__or_zxcv'] = 'zxcv'
+fs3['__or_4567'] = '4567'
+debug_start_feature = parse_feature_in_catalog('<mode> = ind/imp <comp> = nil <wh> = <invlink>  <punct term> = per/qmark/excl <punct struct> = nil')
+empty_feature = FeatStruct()
+empty_feature['__or_'] = ''
+
+def debug_special_unify():
+    print debug_start_feature
+    fs100 = copy.deepcopy(debug_start_feature)
+    fs100.pop('wh')
+    fs100.pop('mode')
+    fs100['wzq'] = fs2
+    fs100['comp'].pop('__or_nil')
+    fs100['comp']['__or_sdsdsd'] = 'sdsdsd'
+    print '=========================='
+    print special_unify(fs100,debug_start_feature)
+
+if __name__ == '__main__':
+    debug_special_unify()
+                    
