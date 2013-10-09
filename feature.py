@@ -363,10 +363,8 @@ def modify_feature_reference(feature,path,ref):
 
     :param feature: The feature structure to change
     :type feature: FeatStruct
-
     :param path: The path in the feature structure to change
     :type path: list(str)
-
     :param ref: Anything that will be put to the path as the reference
     :type ref: Any Object
 
@@ -395,8 +393,18 @@ def modify_feature_reference(feature,path,ref):
     return  
 
 def modify_feature_entry(feature,path,rhs,lhs=None):
+    # Only single entry modification is applicable. If you want to change a
+    # reference instead of a value please use modify_feature_reference()
     """
-    modify_feature_entry(FeatStruct,list,str,str) -> FeatStruct
+    :param feature: The feature structure you want to modify
+    :type feature: FeatStruct
+    :param path: The path of the node being modified
+    :type path: list(str)
+    :param rhs: The new srring that will substitued a old one (no '/' contained)
+    :type rhs: str
+
+    :return: A new feature structure with the entry modified
+    :rtype: FeatStruct
 
     This function is called when the user would like to modify the value
     of some entry in a feature structure. The path is a list containing
@@ -448,14 +456,17 @@ def modify_feature_entry(feature,path,rhs,lhs=None):
         # Remove the only entry, since we have been assurred there is only 1
         current_fs.pop(current_fs.keys()[0])
     else:
-        current_fs.pop('__or_' + lhs)
-    current_fs['__or_' + rhs] = rhs
+        current_fs.pop(make_leaf_str(lhs))
+    current_fs[make_leaf_str(rhs)] = rhs
     
     return returned_fs
 
 def get_all_path(fs):
     """
-    get_all_path(FeatStruct) -> list[list,list,...]
+    :param fs: The feature structure you want to working on
+    :type fs: FeatStruct
+    :return: A list of all paths
+    :rtype: list(list(str))
 
     This function will retuen all possible paths in a feature structure. The
     term path means one way from the root to a leaf (not including __or_ level)
@@ -501,7 +512,14 @@ def get_all_path(fs):
 
 def get_element_by_path(fs,path):
     """
-    get_element_by_path(FeatStruct,list) -> FeatStruct / None
+    :param fs: The feature structure you want to work on
+    :type fs: FeatStruct
+    :param path: The path of the node
+    :type path: list(str)
+
+    :return: If the path is valid then the node will be returned; Or else a
+    None will be returned
+    :rtype: FeatStruct / None
 
     This function will return the entry in feature struct using the path given.
     If the path does not exist then it will return a None object, so please
@@ -538,10 +556,8 @@ def restore_reference(new_feat,old_feat_1,old_feat_2):
 
     :param new_feat: The feature structure after unification
     :type new_feat: FeatStruct
-
     :param old_feat_1: One of the feature structure before unification
     :type old_feat_1: FeatStruct
-
     :param old_feat_2: Another feature structure before unification
     :type old_feat_2: FeatStruct
 
@@ -586,7 +602,10 @@ def restore_reference(new_feat,old_feat_1,old_feat_2):
 
 def fill_in_empty_entry(fs1,fs2):
     """
-    fill_in_empty_entry(FeatStruct,FeatStruct) -> None
+    :param fs1: One of the feature structure acting as the target
+    :type fs1: FeatStruct
+    :param fs2: Another feature structure acting as the source
+    :type fs2: FeatStruct
 
     This function will try to find common entries between the two feature
     structures, and if one of them is of empty value, then we will rewrite
@@ -596,8 +615,8 @@ def fill_in_empty_entry(fs1,fs2):
 
     If both entries are empty, although it is very weird, we will let it pass
     since this is not a fatal error. And if both are not empty, but their values
-    are different, then it is natural that this entry will be deleted during
-    unification, so we also won't say anything about that.
+    are different, then it is natural that unification will return None, so we
+    also won't raise exceptions.
 
     Besides, this function will only check all possible paths in fs1, and then
     rewrite all entries found qualified in fs2. But in practice
