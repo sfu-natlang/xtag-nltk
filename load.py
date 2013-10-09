@@ -421,7 +421,9 @@ def get_option_value(node,opt_name):
         pass
     return None
 
-
+def get_start_feature(node):
+    s = get_option_value(node,'start-feature')
+    return parse_feature_in_catalog(s)
 ############################################
 # Analyze Morphology File ##################
 ############################################

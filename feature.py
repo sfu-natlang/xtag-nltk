@@ -11,9 +11,97 @@ from nltk.featstruct import FeatStruct
 import re
 import copy
 
-#####################################################
-# Operations on feature structures ##################
-#####################################################
+#################################
+# Node testing functions ########
+#################################
+
+def test_leaf(fs):
+    """
+    :param fs: The feature you want to test
+    :type fs: FeatStruct
+
+    :return: True means this is a leaf node, including a multiple entry "__or_"
+    node or a single entry node.
+    :rtype: bool
+
+    This function will test whether a feature structure is a leaf node in
+    the directed graph, by testing all of its keys to see if there is a
+    prefix '__or_' for every left hand side (lhs) string. If this is true
+    then we can make sure that we have reached the bottom of the feature structure
+    graph, and the function will return true, and for some recursivelly
+    implemented procedures this means the recursion will return.
+
+    Also please note that we cannot expect a mixture of '__or_' and non '__or_'
+    entry, this is an inconsistency. But this function will not throw exception
+    and will just return a False (because a non '__or_' is detected)
+
+    [__or_123 = 123]
+    [__or_456 = 456] --> return True
+
+    [apple = [__or_red = red]] --> return False
+    """
+    is_leaf = False
+    keys = fs.keys()
+    for i in keys:
+        if i[0:5] != '__or_':
+            break
+    # This will be executed if we've not met a break
+    # in the for loop, which means all lhs are satisfied
+    else: 
+        is_leaf = True
+        
+    return is_leaf
+
+def test_single_entry(fs):
+    """
+    :param fs: The feature structure that you want to test
+    :type fs: FeatStruct
+
+    :return: True if the fs is a single entry node, False if not.
+
+    This function will test whether a given leaf node is a single entry
+    node, which means that if we want to modify this node we need not to
+    specify the LHS.
+
+    If the feature structure given is not a leaf node then an excaption will be
+    raised. For example:
+
+    fs = [__or_123 = '123'] -> True
+                 
+    fs = [__or_123 = '123']
+         [__or_456 = '456'] -> False
+
+    fs = [apple = [__or_123 = '123']] -> exception
+    """
+    if test_leaf(fs) == False:
+        raise ValueError('The feature structure is not a leaf node')
+    else:
+        keys = fs.keys()
+        if len(keys) == 1:
+            return True
+        else:
+            return False
+
+def test_empty_entry(fs):
+    """
+    :param fs: The feature structure that you want to test
+    :type fs: FeatStruct
+
+    :return: True if it is an empty entry, False if not
+    :rtype: bool
+
+    This function will test whether a given feature structuer is an empty entry fs.
+    which has the form [__or_ = ''], and this is the only form that will cause
+    a True to be returned. In other situations a False will be returned.
+    """
+    if fs.has_key('__or_') and len(fs.keys()) == 1:
+        return True
+    else:
+        return False
+
+##############################
+# Node Constructing ##########
+##############################
 
 def remove_or_tag(feature):
     """
@@ -51,18 +139,42 @@ def remove_or_tag(feature):
             new_feature[key] = remove_or_tag(feature[key])
     return new_feature
 
+def make_leaf_str(rhs):
+    """
+    :param rhs: A string in the right hand side
+    :type rhs: str
+
+    :return: The string with a '__or_' attached as prefix
+    :rtype: str
+
+    This simple function is mainly used to construct the LHS string using
+    an RHS string. For the current stage we just append a '__or_' to it.
+
+    For example:
+
+    rhs = 'wzq'
+    -> '__or_wzq'
+    """
+    return '__or_' + rhs
+
 def make_rhs_using_or(rhs):
     """
-    make_rhs_using_or(string) -> FeatStruct
+    :param rhs: The right hand string which may contain the 'or' relationship
+    :type rhs: str
+
+    :return: A feature structure using '__or_' structure
+    :rtype: FeatStruct
 
     This function will return a feature structure which satisfies the
     requirement for implementing the 'or' relationship in the xtag grammar.
     rhs must be a string, whose value will be used to construct the lhs
-    inside the new feature structure. For example, if rhs = a/b/c then the
-    result will be:
-    [       [ __or_a = a ] ]
-    [ rhs = [ __or_b = b ] ]
-    [       [ __or_c = c ] ]
+    inside the new feature structure.
+
+    For example,
+
+    rhs = a/b/c ->  [ __or_a = a ]
+                    [ __or_b = b ]
+                    [ __or_c = c ]
     """
     new_fs = FeatStruct()
     slash = rhs.find('/')
@@ -72,106 +184,33 @@ def make_rhs_using_or(rhs):
         rhs = rhs.split('/')
     # After this rhs is a list containing the entities in the 'or' relation
     for i in rhs:
-        lhs = '__or_' + i
+        lhs = make_leaf_str(i)
         new_fs[lhs] = i
     return new_fs
-
-def test_leaf(fs):
-    """
-    test_leaf(FeatStruct) -> Bool
-
-    This function will test whether a feature structure is a leaf node in
-    the directed graph, by testing all of its keys to see if there is a
-    prefix '__or_' for every left hand side (lhs) string. If this is true
-    then we can make sure that we have reached the bottom of the feature structure
-    graph, and the function will return true, and for some recursivelly
-    implemented procedures this means the recursion will return.
-    """
-    is_leaf = False
-    keys = fs.keys()
-    for i in keys:
-        if i[0:5] != '__or_':
-            break
-    # This will be executed if we've not met a break
-    # in the for loop, which means all lhs are satisfied
-    else: 
-        is_leaf = True
-        
-    return is_leaf
-
-def test_single_entry(fs):
-    """
-    test_single_entry(FeatStruct) -> Bool
-
-    This function will test whether a given leaf node is a single entry
-    node, which means that if we want to modify this node we need not to
-    specify the LHS.
-
-    If the feature structure given is not a leaf node then an error will be
-    raised.
-
-    For example: fs = [apple = [orange = [__or_123 = '123']]]
-                 test_single_entry = True
-                 
-                 fs = [apple = [orange = [__or_123 = '123']]]
-                      [                  [__or_456 = '456']]]
-                 test_single_entry = False
-    """
-    if test_leaf(fs) == False:
-        raise ValueError('The feature structure is not a leaf node')
-    else:
-        keys = fs.keys()
-        if len(keys) == 1:
-            return True
-        else:
-            return False
-
-def test_empty_entry(fs):
-    """
-    test_empty_entry(FeatStruct) -> Bool
-
-    This function will test whether a given feature structuer is an empty entry fs.
-    An empty entry fs is defined not as an empty entry (i.e. []), it is defined
-    as strictly [__or_ = '']. Only this feature structure will cause a return
-    value of True, otherwise it will return False.
-    """
-    if fs.has_key('__or_') and len(fs.keys()) == 1:
-        return True
-    else:
-        return False
-    
-def make_leaf_str(rhs):
-    """
-    make_leaf_str(str) -> str
-
-    This simple function is mainly used to construct the LHS string using
-    an RHS string. For the current stage we just append a '__or_' to it.
-
-    For example: rhs = 'wzq'
-                 make_leaf_str(rhs) = '__or_wzq'
-    """
-    return '__or_' + rhs
 
 def make_fs(lhs,rhs,ref=0):
     # This function makes a feature structure using a list of lhs which are nested
     # e.g. if lhs = ['a','b','c','d'] and rhs = 'wzq' then the
     # fs shoule be [a = [b = [c = [d = 'wzq']]]]
     """
-    make_fs(lhs,rhs) -> FeatStruct
-
-    Given the lhs list and rhs object, this fucntion will return a feature structure
-    using the parameters above. The lhs must be given as a list which contains
-    the left hand side tag in each level, and the rhs can be any type of objects
-    But the most commonly used is string object or another feature structure.
-
-    Also notice that this function will aotumatically add a "__or_" + rhs tag at
-    the last level, making it easier for other procedures in XTAG system
-
-    Example:
+    :param lhs: The path on the left hand side
+    :type lhs: list(str)
+    :param rhs: The string on the right hand side / Any object
+    :type rhs: str / object
+    :param ref: Control whether to treat rhs as a string or as an abitrary object
+    :type ref: 0 / 1
+    :return: A constructed feature structure
+    :rtype: FeatStruct
+    
+    Given the path and the right hand side of a feature structure this function
+    will return a feature structure exactly has the path defined in lhs and the
+    value inside it is the rhs. There are two choices, we can either pass in a
+    string as the rhs to let the code to deal with the 'or' problem. or just
+    pass in an object and the code will not touch that (ref = 1 needed).
+    
     lhs = ['a','b','c','d']
     rhs = 'wzq'
-    Then make_fs(lhs,rhs) will return
-    FeatStruct = [a = [b = [c = [d = [__or_wzq = 'wzq']]]]]
+    ->FeatStruct = [a = [b = [c = [d = [__or_wzq = 'wzq']]]]]
     """
     new_fs = FeatStruct()
     
@@ -184,19 +223,26 @@ def make_fs(lhs,rhs,ref=0):
         if ref == 0:
             rhs = make_rhs_using_or(rhs)
         elif ref == 1:
-            rhs = rhs # Do nothing
+            pass # Do nothing
         else:
             raise ValueError('Undefined ref value %d' % (ref))
         
         new_fs[lhs[0]] = rhs
     else:
-        new_fs[lhs[0]] = make_fs(lhs[1:],rhs,ref)
+        new_fs[lhs[0]] = make_fs(lhs[1:],rhs,ref) # Recursively call
         
     return new_fs
 
 def add_new_fs(fs,lhs,rhs,ref=0):
     """
-    add_new_fs(fs,lhs,rhs) -> None
+    :param fs: The feature structure that we are going to add to it.
+    :type fs: FeatStruct
+    :param lhs: The path defined for the new node
+    :type lhs: list(str)
+    :param rhs: The value of the node
+    :type rhs: str / Any object
+    :param ref: Controls whether rhs should be treated as a string or other object
+    :type ref: 0 / 1
 
     This function will add the feature structure defined by lhs and rhs
     into an existing feature fs. The lhs of the lowest level is defined
@@ -207,12 +253,13 @@ def add_new_fs(fs,lhs,rhs,ref=0):
     one and make a new one, so it is safe to use this function to merge two
     feature structures.
 
-    Example:
+    For example,
+    
     fs = [a = ['www']]
     lhs = ['a','b','c','d','e']
     rhs = 'wzq'
-    Result:
-    [a = [['www']                                 ]
+    ->
+    [a = [['www']                                ]
     [    [b = [c = [d = [e = [__or_wzq = 'wzq']]]]
     """
     if len(lhs) == 1:
@@ -235,6 +282,7 @@ def add_new_fs(fs,lhs,rhs,ref=0):
         else:
             fs[lhs[0]] = FeatStruct()
             add_new_fs(fs[lhs[0]],lhs[1:],rhs,ref)
+    return
 
 def merge_fs(fs1,fs2):
     # This function merges fs2 into fs1, changing fs1 in-place
@@ -243,6 +291,9 @@ def merge_fs(fs1,fs2):
     # just assumes that fs2 and fs1 does not have any entries in common
     # NOTICE: In Templates.lex we cannot guarantee there is no overlap
     # so only use this function when it IS clear.
+    """
+    Please do not use this one, call add_new_fs() instead
+    """
     for k in fs2.keys():
         if fs1.has_key(k):
             merge_fs(fs1[k],fs2[k])
@@ -256,7 +307,10 @@ def parse_feature_in_catalog(s):
     # separate parsers for different strings from different files, since
     # these features are represented in different forms.
     """
-    parse_feature_in_catalog(string) -> FeatStruct
+    :param s: The string repersenting start feature in the catalog file
+    :type s: str
+    :return: A feature structure which is the start feature
+    :rtype: FeatStruct
 
     Given the string, this function will return a feature structure parsed
     from that string. The feature structure should be encoded like this:
@@ -298,10 +352,6 @@ def parse_feature_in_catalog(s):
         add_new_fs(new_fs,token[0].split(),token[1])
 
     return new_fs
-
-def get_start_feature(node):
-    s = get_option_value(node,'start-feature')
-    return parse_feature_in_catalog(s)
 
 #########################################################
 # Feature Structure Function For Future Use #############
