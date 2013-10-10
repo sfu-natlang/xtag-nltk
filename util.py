@@ -26,7 +26,7 @@ import time
 import nltk.data
 
 def load():
-    cata_str = nltk.data.find('xtag_grammar/english.gram.orig').open().read()
+    cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
     
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
@@ -1594,8 +1594,9 @@ class TAGTree(Tree):
         heads = self.get_head()
         for head in heads:
             for m in morph:
-                if head.get_node_name().replace('_', '') == m[1]:
+                if head.get_node_name().replace('_','') == m[1]:
                     lex = TAGTree(m[0], [], 'lex')
+                    print m
                     head.set_children(lex)
                     all_fs = self.get_all_fs()
                     for f in fs:
@@ -1626,7 +1627,7 @@ class TAGTree(Tree):
 
     def _find_value(self, fs, idn, cfs):
         for i in fs:
-            if len(fs[i].keys()) > 0 and fs[i].keys()[0] == '__value__':
+            if len(fs[i].keys()) > 0 and fs[i].keys()[0][0:5] == '__or_':
                 if id(fs[i]) == idn:
                     fs[i] = cfs
             else:
@@ -1644,11 +1645,12 @@ class TAGTree(Tree):
         stack.append(self)
         while len(stack) > 0:
             last = stack.pop()
-            all_feat[_fs_name(last.node, True)] = last.top_fs
-            all_feat[_fs_name(last.node, False)] = last.bot_fs
+            all_feat[last.node+'.'+'t'] = last.top_fs
+            all_feat[last.node+'.'+'b'] = last.bot_fs
             for child in last:
                 if isinstance(child, TAGTree):
                     stack.append(child)
+        print all_feat.keys()
         return all_feat
 
     def set_all_fs(self, all_fs):
@@ -1661,11 +1663,11 @@ class TAGTree(Tree):
         nodes.append(self)
         while len(nodes) > 0:
             last = nodes.pop()
-            if _fs_name(last.node, True) not in all_fs:
-                if _fs_name(last.node, False) not in all_fs:
+            if last.node+'.'+'t' not in all_fs:
+                if last.node+'.'+'b' not in all_fs:
                     raise NameError('should contain feature structures')
-            last.top_fs = all_fs[_fs_name(last.node, True)]
-            last.bot_fs = all_fs[_fs_name(last.node, False)]
+            last.top_fs = all_fs[last.node+'.'+'t']
+            last.bot_fs = all_fs[last.node+'.'+'b']
             for child in last:
                 if isinstance(child, TAGTree):
                     nodes.append(child)
@@ -1845,8 +1847,24 @@ def _all_widget(feats, reentrances, reentrance_ids, c, name):
     return SequenceWidget(c, *widgets, align='center')
 
 def _fs_widget(feats, c, name, **attribs):
+    old_name = []
+    for fname in feats:
+        if ord(fname[0]) > 206:
+            f_chr = ord(u'\u03af') + ord(fname[0])
+            uname = f_chr + fname[1:]
+            feats[uname] = feats[fname]
+            old_name.append(fname)
+    for name in old_name:
+    #    print name
+        del feats[name]
+
+    #for name in feats:
+        #print ord(name[0]), name[0]
+        #print name
 
     fstr = feats.__repr__()
+    #print fstr
+
     fstr = fstr.replace('__value__=','')
     fstr = fstr.replace("'",'')
     
