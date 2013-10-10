@@ -1093,7 +1093,7 @@ def word_to_features(word):
 def tree_to_words(tree_name):
     global dicts
     if not dicts[3].has_key(tree_name):
-        return None
+        return []
     else:
         return dicts[3][tree_name]
 
