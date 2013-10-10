@@ -89,7 +89,11 @@ class LexView(object):
                 if isinstance(tree[path], type(self._treeview._trees)):
                     return
             self.phrases.set("")
-            treename = subpath[:-6]
+            if not isinstance(tree, type(self._treeview._trees)) and subpath[-6:] == '.trees':
+                treename = subpath[:-6]
+            else:
+                treename = subpath
+            #treename = subpath[:-6]
             words = tree_to_words(treename)
             self.clean_option()
 
