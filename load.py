@@ -1092,7 +1092,10 @@ def word_to_features(word):
 
 def tree_to_words(tree_name):
     global dicts
-    return dicts[3][tree_name]
+    if not dicts[3].has_key(tree_name):
+        return None
+    else:
+        return dicts[3][tree_name]
 
 def init(morph,syntax,temp,default):
     # This function will initiate the environment where the XTAG grammar
