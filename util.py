@@ -21,19 +21,29 @@ from load import *
 from nltk.draw.tree import (TreeView, TreeWidget, TreeSegmentWidget)
 from nltk.sem.logic import (Variable, Expression)
 from nltk.draw.util import *
+from nltk.tokenize import word_tokenize
 from collections import defaultdict
+from parse import dump_to_disk, restore_from_disk
 import time
 import nltk.data
+import pickle
 
 def load():
     cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
     
     cata = get_catalog(cata_str)
+    #start = time.time()
+    """
     sfs = get_start_feature(cata)
     t = parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
     t.set_start_fs(sfs)
+    dump_to_disk('tagtreeset.pickle', t)
+    """
 
+    treefile = nltk.data.find('xtag_grammar/pickles/tagtreeset.pickle').open()
+    treeset = restore_from_disk(treefile)
+    #print time.time()-start
     morph = get_file_list(cata, 'morphology-files')
     syn = get_file_list(cata, 'lexicon-files')
     temp = get_file_list(cata, 'templates-files')
@@ -49,9 +59,9 @@ def load():
     temp_str = nltk.data.find(temp_path).open().read()
     default_str = nltk.data.find(default_path).open().read()
 
-    init(morph_str, syn_str, temp_str, default_str)
 
-    return t
+    init(morph_str, syn_str, temp_str, default_str)
+    return treeset
 
 #    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
 #    treetok = graph_parse(treetok)
@@ -129,6 +139,7 @@ class TreeMerge(object):
         self._parent = parent
 
     def connect(self, tree):
+        print self.trees
         if self.merge == None:
             self.merge = tree
         else:
@@ -137,28 +148,39 @@ class TreeMerge(object):
             if not isinstance(top.parent(), type(top)):
                 head = top
                 parent = tree
+                print 1
             elif not isinstance(otop.parent(), type(otop)):
                 head = tree
                 parent = top
+                print 2
             else:
                 self.merge.reset()
                 #tree.reset()
                 self.merge = tree
+                print 3
                 return
 
             if self.root(self.merge) != self.root(tree):
                 if isinstance(parent._tree, basestring):
                     parent._tree = Tree(parent._tree, head._tree)
+                    print 4
                 else:
+                    print parent._tree
                     parent._tree.append(head._tree)
+                    print parent._tree
+                    print 5
                 if head._tree in self.trees:
+                    print 6
+                    print head._tree, self.trees
                     self.trees.remove(head._tree)
                 self.merge = None
                 self._parent.redraw()
             else:
+                print 7
                 self.merge.reset()
                 #tree.reset()
                 self.merge = tree
+            print self.trees
 
     def root(self, tree):
         child = tree.parent()
@@ -166,7 +188,7 @@ class TreeMerge(object):
             child = child.parent()
         return child
 
-    def tset(self):
+    def tree(self):
         return self.trees
 
 
@@ -341,27 +363,24 @@ class GraphElementWidget(BoxWidget):
     def click(self, node):
         #current = time.time()
         if self._select == 1:
-        #    print 111
             #if self.parent() == None:
             #    parent = self
             #else:
             #    parent = self.parent()
             parent = self
-            #print parent
             parent._merge.connect(parent)
             self._select = 2
             #self.parent()._anc.rollback(self)
             self['fill'] = 'red'
-            #print 'MergeMergeMerge', self._merge.merge
         elif self._select == 2:
             node['fill'] = 'green'
             self._select = 0
         else:
             node['fill'] = 'yellow'
             self._select = 1
-            self.parent()._anc.select(self)
-            lex_list = word_to_features(self._text)
-            #print lex_list
+            #self.parent()._anc.select(self)
+            #lex_list = word_to_features(self._text)
+            
         #self._press = current
 
     def set_merge(self, tree):
@@ -372,8 +391,9 @@ class GraphElementWidget(BoxWidget):
 
     def set_leaf(self, tree):
         if isinstance(tree, basestring):
-            raise TypeError("\n")
-        self._tree = tree
+            self._tree = Tree(tree, [])
+        else:
+            self._tree = tree
 
     def reset(self):
         self._select = 0
@@ -389,7 +409,7 @@ class GraphWidget(TreeWidget):
         self._l = []
         self._merge = merge        
         self._parent = parent
-        self.tree_set = merge.tset()
+        self.tree_set = merge.tree()
         self.tw = TreeWidget.__init__(self, canvas, t, make_node,
                             make_node, **attribs)
         self._top = top
@@ -569,7 +589,11 @@ class GraphWidget(TreeWidget):
                         parent = i
                         child = self._ltconnect[i].pop(j)
                         for k in range(0, len(parent._tree)):
-                            if parent._tree[k] == child._tree:
+                            if isinstance(parent._tree[k], basestring):
+                                if len(child._tree) == 0 and parent._tree[k] == child._tree.node:
+                                    parent._tree.pop(k)
+                                    break
+                            elif parent._tree[k] == child._tree:
                                 parent._tree.pop(k)
                                 break
                         if isinstance(child._tree, basestring):
@@ -911,40 +935,40 @@ class TAGTreeSetView(object):
         frame = Frame(self._top)
 
         v = StringVar()
-        w = Label(frame, text='Regexp:')
+        self.w = Label(frame, text='Regexp:')
         self._e = Entry(frame, textvariable=v)
         self._e.bind("<Return>", self.return_pressed)
         self._show_fs = True
         self._show_fs_button = Button(frame, text="Hide Features", command=self.show_fs)
         self._sfs_button = Button(frame, text="Add Start Features", command=self._start_fs)
-        highlight_button = Button(frame, text="Highlight", command=self.highlight)
-        remove_button = Button(frame, text="Remove", command=self.remove)
-        keep_button = Button(frame, text="Keep", command=self.keep)
+        self.highlight_button = Button(frame, text="Highlight", command=self.highlight)
+        self.remove_button = Button(frame, text="Remove", command=self.remove)
+        self.keep_button = Button(frame, text="Keep", command=self.keep)
         self._sfs_button.pack(side=LEFT)
         self._show_fs_button.pack(side=LEFT)
-        w.pack(side=LEFT)
+        self.w.pack(side=LEFT)
         self._e.pack(expand=1, fill='both', side = LEFT)
-        highlight_button.pack(side=RIGHT)
-        keep_button.pack(side=RIGHT)
-        remove_button.pack(side=RIGHT)
+        self.highlight_button.pack(side=RIGHT)
+        self.keep_button.pack(side=RIGHT)
+        self.remove_button.pack(side=RIGHT)
         
 
         statframe = Frame(self._top)
-        notfl = Label(statframe, text='Tree Framilies:')
+        self.notfl = Label(statframe, text='Tree Framilies:')
         self.notf = StringVar()
         self.nott = StringVar()
-        tfcl = Label(statframe, textvariable=self.notf)
-        nottl = Label(statframe, text='Trees:')
-        tcl = Label(statframe, textvariable=self.nott)
+        self.tfcl = Label(statframe, textvariable=self.notf)
+        self.nottl = Label(statframe, text='Trees:')
+        self.tcl = Label(statframe, textvariable=self.nott)
 
         self.notf.set(str(self._trees.tree_family_count()))
         self.nott.set(str(self._trees.tree_count()))
 
         statframe.pack(side = BOTTOM, fill='both')
-        notfl.pack(side = LEFT)
-        tfcl.pack(side = LEFT)
-        nottl.pack(side = LEFT)
-        tcl.pack(side = LEFT)
+        self.notfl.pack(side = LEFT)
+        self.tfcl.pack(side = LEFT)
+        self.nottl.pack(side = LEFT)
+        self.tcl.pack(side = LEFT)
 
         frame.pack(side = BOTTOM, fill='both')
 
@@ -1396,7 +1420,7 @@ def xtag_parser(txt):
     return tagset
 
 class DependencyGraphView(TAGTreeSetView):
-    def __init__(self, trees, tagset):
+    def __init__(self, tagset):
 
         TAGTreeSetView.__init__(self, tagset)
         """
@@ -1408,10 +1432,31 @@ class DependencyGraphView(TAGTreeSetView):
         #"""
         self._cframe = CanvasFrame(self._top)
         self._widgets = []
-        self._merge = TreeMerge([trees], self)
-        self._tset = self._merge.tset()
+        treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
+        self._merge = TreeMerge([treetok], self)
+        #self._merge = TreeMerge([trees], self)
+        self._tset = self._merge.tree()
         self._ps = None
         self._os = None
+        self.w['text'] = '    Input Sentence:    '
+        self.highlight_button['text'] = '  Parse  '
+        self.highlight_button['command'] = self.parse
+        self.keep_button.pack_forget()
+        self.remove_button.pack_forget()
+        self._show_fs_button.pack_forget()
+        self._sfs_button.pack_forget()
+        self.notfl['text'] = ''
+        self.nottl['text'] = ''
+        self.tfcl.pack_forget()
+        self.tcl.pack_forget()
+        #self.parser = parser
+
+    def parse(self):
+        self.redraw()
+        #words = word_tokenize(self._e.get())
+        #print words
+        #graph = self.parser.parse(words)
+        #print graph
 
 
     def redraw(self):
@@ -1423,6 +1468,12 @@ class DependencyGraphView(TAGTreeSetView):
         sturcture on the canvas
         :param trees: a list of tree segments
         """
+        #cf = CanvasFrame(width=550, height=450, closeenough=2)
+        #GraphWidget(self._cframe.canvas(), self._tset[0], self._merge,
+        #                     self._top, self, self.boxit)
+        #self._cframe.pack(expand=1, fill='both', side = LEFT)
+        #print self._merge.trees
+
         for i in self._widgets:
             self._cframe.destroy_widget(i)
         self._size = IntVar(self._top)
@@ -1448,7 +1499,20 @@ class DependencyGraphView(TAGTreeSetView):
 
         self._layout()
         self._cframe.pack(expand=1, fill='both', side = LEFT)
-        self._init_menubar()
+        #self._init_menubar()
+    
+    def _layout(self):
+        i = x = y = ymax = 0
+        width = self._width
+        for i in range(len(self._widgets)):
+            widget = self._widgets[i]
+            (oldx, oldy) = widget.bbox()[:2]
+            if i % width == 0:
+                y = ymax
+                x = 0
+            widget.move(x-oldx, y-oldy)
+            x = widget.bbox()[2] + 10
+            ymax = max(ymax, widget.bbox()[3] + 10)
 
     def boxit(self, canvas, text):
         big = ('helvetica', -16, 'bold')
@@ -1596,7 +1660,6 @@ class TAGTree(Tree):
             for m in morph:
                 if head.get_node_name().replace('_','') == m[1]:
                     lex = TAGTree(m[0], [], 'lex')
-                    print m
                     head.set_children(lex)
                     all_fs = self.get_all_fs()
                     for f in fs:
@@ -1650,7 +1713,6 @@ class TAGTree(Tree):
             for child in last:
                 if isinstance(child, TAGTree):
                     stack.append(child)
-        print all_feat.keys()
         return all_feat
 
     def set_all_fs(self, all_fs):
