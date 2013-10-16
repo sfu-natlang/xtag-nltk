@@ -110,8 +110,12 @@ def test_contain(fs1,fs2):
     :return: 0 if they are equal to each other
              1 if fs1 is a subset of fs2
             -1 if fs2 is a subset of fs1
-             None if there is no contain relationship
-    :rtype: integer
+    FeatStruct if there is some intersection
+          None if there is no intersection
+
+          One exception is that, if the two fs are both empth then we will return
+          equal instead of None.
+    :rtype: integer/FeatStruct/None
 
     This function requires that fs1 and fs2 are leaf nodes, if they are not then an
     an exception will be raised. Besides, since in a leaf node the left hand side
@@ -135,9 +139,17 @@ def test_contain(fs1,fs2):
     len_2 = len(key_2)
     new_len_1 = len(new_key_1)
     new_len_2 = len(new_key_2)
-    
-    if len_1 != new_len_1 and len_2 != new_len_2:
+    # Now new_len_1 and new_len_2 are the same keys in both fs, or both []
+    # means no same keys
+    #print new_key_1
+    #print new_key_2
+    if new_len_1 == 0 and new_len_2 == 0:
         return None
+    elif len_1 != new_len_1 and len_2 != new_len_2:
+        ret = FeatStruct()
+        for i in new_key_1:
+            ret[i] = fs1[i]
+        return ret
     elif len_1 == new_len_1 and len_2 != new_len_2:
         return 1 # len_1 not changed, it is contained in len_2
     elif len_1 != new_len_1 and len_2 == new_len_2:
@@ -602,7 +614,7 @@ def get_element_by_path(fs,path):
 
 def restore_reference(new_feat,old_feat_1,old_feat_2):
     """
-    Restore the reference relationship after doing unify to a feature structure.
+    Restore the reference relationship after doing unification to a feature structure.
 
     :param new_feat: The feature structure after unification
     :type new_feat: FeatStruct
@@ -694,9 +706,83 @@ def fill_in_empty_entry(fs1,fs2):
                 old_value.pop('__or_') # Remove the '__or_' entry
     return
 
-def special_unify(fs1,fs2):
+def search_correction(corr_list,item):
+    """
+    Used in special_unify(), please do not call this.
+    
+    :param corr_list: A list of tuples repersenting the old value and new value
+    used in the correction.
+    :type corr_list: list(tuple(FeatStruct,FeatStruct,FeatStruct))
+    :param item: The leaf node to be checked against the list
+    :type item: FeatStruct
+
+    This function checks the id of the item (using built-in function id()) and
+    see whether the id already exists in the corr_list, both tuple[0] or tuple[1]
+    which are the two values before unification. And if there is a match, just
+    return tuple[2], which is the new value after unification.
+    """
+    for i in corr_list:
+        item_id = id(item)
+        if item_id == id(i[1]) or item_id == id(i[2]):
+            return i[0]
+        return None
+
+def correct_other_nodes(corr_list,tree):
+    """
+    :param corr_list: correction list in special_unify()
+    :type corr_list: list(tuple(FeatStruct,FeatStruct,FeatStruct))
+    :param tree: The tree on which you want to restore value reference
+    :type tree: TAGTree
+    
+    The goal of this function is to do some correction work after unification,
+    when there is shared values between nodes, the unification function cannot
+    tell which node refers to a certain value, and will make new values on some
+    condition. So in order to restore this kind of reference we must do a
+    correction after the unification.
+
+    During unification the method special_unify() will make a record of these
+    new nodes, together with the old values, in order to do a matching with
+    the nodes on the feature structures of other nodes. This record is exactly
+    corr_list.
+    """
+    fs = tree.get_all_fs()
+    fs_list = fs.values()
+    for i in fs_list: # Enumerate all feature structures
+        path = get_all_path(i)
+        for j in path: # j is all paths in the feature
+            corr_check = search_correction(corr_list,j)
+            if corr_check != None:
+                # If we find some entry whose value exists in the correction list
+                # then just change the value of that entry to the new entry
+                # we've just created in the new feature structure.
+                modify_feature_reference(i,j,corr_check)
+    return
+
+def special_unify(fs1,fs2,tree1=None,tree2=None):
+    """
+    :param fs1: One of the feature structures you want to unify
+    :type fs1: FeatStruct
+    :param fs2: Another feature structure
+    :type fs2: FeatStruct
+    :param tree1: The tree that you want to restore inter-node reference
+    :type tree1: TAGTree
+    :param tree2: Another tree, optional.
+    :type tree2: TAGTree
+
+    This function will do a unify just like what the normal unify() does, but
+    in addition to a normal unification we also have the following features:
+
+    1. Disjunction is considered, e.g. [x = a/b/c] and [x = b/c/d] should yield
+    [x = b/c]; [x = a/b/c] and [x = a/b] should yield [x = a/b]
+    2. The result is a new feature structure, but the leaf node is not new;
+    actually we will make reference to the leaf nodes in fs1 and fs2
+    3. When the path and the value are both the same, we will make new nodes,
+    and then fix the references in the trees given by parameters tree1 and tree2
+    to make the entry point to the new node.
+    """
     new_fs = FeatStruct()
-    path_2 = get_all_path(fs2)
+    correction_list = []
+    path_2 = get_all_path(fs2) # To save time, no path_1
     for i in path_2:
         item_1 = get_element_by_path(fs1,i)
         if item_1 == None:
@@ -709,13 +795,28 @@ def special_unify(fs1,fs2):
                 add_new_fs(new_fs,i,item_1,1)
             elif tc == -1:
                 add_new_fs(new_fs,i,item_2,1)
-            elif tc == 0:
-                new_entry = copy.deepcopy(item_1)
+            elif tc == 0: # Two entries are the same, we create a new one
+                corr_check = search_correction(correction_list,item_1)
+                if corr_check == None:
+                    new_entry = copy.deepcopy(item_1)
+                    # This tuple is used to correct the reference in tree(s)
+                    # Enumerating all paths, check whether the id of the value is
+                    # equal to either item1 or item2, if it is then change the
+                    # reference to new_entry
+                    correction_tuple = (new_entry,item_1,item_2)
+                    correction_list.append(correction_tuple)
+                else:
+                    # The return value is the new entry stored if three is not None
+                    new_entry = corr_check
+                # Add new reference (new entry or existing entry)
                 add_new_fs(new_fs,i,new_entry,1)
-                pass
-                #TODO: ADD REFERENCE
-            else:
+            elif tc == None:
                 return None # Conflict
+            # Partial intersection, return value is a new FeatStruct only contains
+            # the intersection. But we do not need to correct this, since it
+            # is brand-new
+            else: 
+                add_new_fs(new_fs,i,tc,1)
             #if i[0] == 'comp': print tc
 
     # We do not need to check when item_2 != None, because we have already
@@ -728,7 +829,12 @@ def special_unify(fs1,fs2):
         if item_2 == None:
             item_1 = get_element_by_path(fs1,i)
             add_new_fs(new_fs,i,item_1,1)
-            
+
+    if tree1 != None:
+        correct_other_nodes(correction_list,tree1)
+    if tree2 != None:
+        correct_other_nodes(correction_list,tree2)
+    
     return new_fs
 
 fs1 = FeatStruct()
@@ -753,11 +859,22 @@ def debug_special_unify():
     fs100.pop('wh')
     fs100.pop('mode')
     fs100['wzq'] = fs2
-    fs100['comp'].pop('__or_nil')
+    #fs100['comp'].pop('__or_nil')
     fs100['comp']['__or_sdsdsd'] = 'sdsdsd'
     print '=========================='
     print special_unify(fs100,debug_start_feature)
 
+def debug_test_contain():
+    fs100 = FeatStruct()
+    fs100['__or_wzq'] = 'wzq'
+    #fs100['__or_qwe'] = 'qwe'
+    fs101 = FeatStruct()
+    fs101['__or_123'] = '123'
+    fs101['__or_wzq'] = 'wzq'
+    print test_contain(fs100,fs101)
+    
+
 if __name__ == '__main__':
     debug_special_unify()
+    #debug_test_contain()
                     
