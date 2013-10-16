@@ -44,11 +44,13 @@ class LexView(object):
 
         self.phrases = StringVar()
         self.phrases.set("")
-        update_button = Button(self.frame, text="Update", command=self.update_word)
+        update_button = Button(self.frame, text="Select", command=self.update_word)
         self._w = OptionMenu(self.frame, self.phrases, [])
         update_button.pack(side=RIGHT)
         self._w.pack(side=RIGHT)
-        wl = Label(self.frame, text='multi-word:')
+        #self._w.bind('<<MenuSelect>>', self.update_word)
+        #self._w['menu'].entryconfigure(command=self.update_word)
+        wl = Label(self.frame, text='Anchors:')
         wl.pack(side=RIGHT)
         
         all_button.pack(side=RIGHT)
@@ -90,10 +92,11 @@ class LexView(object):
                 if isinstance(tree[path], type(self._treeview._trees)):
                     return
             self.phrases.set("")
-            if not isinstance(tree, type(self._treeview._trees)) and subpath[-6:] == '.trees':
+            if isinstance(tree, type(self._treeview._trees)) and subpath[-6:] == '.trees':
                 treename = subpath[:-6]
             else:
                 treename = subpath
+
             words = tree_to_words(treename)
             self.clean_option()
 
@@ -120,11 +123,14 @@ class LexView(object):
             fset = self._tagset[word]
             lex_list = word_to_features(word)
             self._lex_tag_set(lex_list, fset)
+            print word
             for morph in lex_list:
+                print morph[0]
                 if len(morph[0]) > 1:
                     phrases = [v[0] for v in morph[0]]
                     if all(phrase in words for phrase in phrases):
                         index = ''
+                        print phrases
                         for i in phrases:
                             index = index + i + ' '
                         self._tagset[index] = TAGTreeSet()
@@ -167,6 +173,7 @@ class LexView(object):
         self._tagset = TAGTreeSet()
         self._treeview.clear()
         for word in words:
+            print word
             self._tagset[word] = TAGTreeSet()
             fset = self._tagset[word]
             lex_list = word_to_features(word)
