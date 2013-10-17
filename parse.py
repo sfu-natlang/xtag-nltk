@@ -6,21 +6,27 @@
 # URL: <http://www.nltk.org/>
 # For license information, see LICENSE.TXT
 #
-from nltk.parse.nonprojectivedependencyparser import *
+
+from nltk.parse.projectivedependencyparser import *
+#from nltk.parse.nonprojectivedependencyparser import *
 from nltk.classify.naivebayes import *
 from nltk.tokenize import word_tokenize
 from nltk import pos_tag
+from util import *
+import time
 import pickle
 from copy import deepcopy
 import nltk.data
 
+#help(ProbabilisticNonprojectiveParser)
+"""
 class XTAGScorer(NaiveBayesDependencyScorer):
-    """
+
     A dependency scorer built around a MaxEnt classifier.  In this
     particular class that classifier is a ``NaiveBayesClassifier``.
     It uses head-word, head-tag, child-word, and child-tag features
     for classification.
-    """
+
 
     def __init__(self, label_freqdist, feature_probdist):
         self.label_freqdist = label_freqdist
@@ -28,23 +34,141 @@ class XTAGScorer(NaiveBayesDependencyScorer):
 
     def train(self, graphs):
         self.classifier = NaiveBayesClassifier(self.label_freqdist, self.feature_probdist)
+"""
+
+class XTAGParser(ProbabilisticProjectiveDependencyParser):
+    def __init__(self):
+        pass
+
+    def parse(self, tokens):
+        """
+        Parses the list of tokens subject to the projectivity constraint
+        and the productions in the parser's grammar.  This uses a method
+        similar to the span-concatenation algorithm defined in Eisner (1996).
+        It returns the most probable parse derived from the parser's
+        probabilistic dependency grammar.
+        """
+        self._tokens = list(tokens)
+        chart = []
+        for i in range(0, len(self._tokens) + 1):
+            chart.append([])
+            for j in range(0, len(self._tokens) + 1):
+                chart[i].append(ChartCell(i,j))
+                if i==j+1:
+                    if tokens[i-1] in self._grammar._tags:
+                        for tag in self._grammar._tags[tokens[i-1]]:
+                            chart[i][j].add(DependencySpan(i-1,i,i-1,[-1], [tag]))
+                    else:
+                        print('No tag found for input token \'%s\', parse is impossible.' % tokens[i-1])
+                        return []
+        print '1'
+        for i in range(1,len(self._tokens)+1):
+            for j in range(i-2,-1,-1):
+                for k in range(i-1,j,-1):
+                    for span1 in chart[k][j]._entries:
+                            for span2 in chart[i][k]._entries:
+                                for newspan in self.concatenate(span1, span2):
+                                    chart[i][j].add(newspan)
+        print '2'
+        graphs = []
+        trees = []
+        max_parse = None
+        max_score = 0
+        for parse in chart[len(self._tokens)][0]._entries:
+            conll_format = ""
+            malt_format = ""
+            for i in range(len(tokens)):
+                malt_format += '%s\t%s\t%d\t%s\n' % (tokens[i], 'null', parse._arcs[i] + 1, 'null')
+                conll_format += '\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n' % (i+1, tokens[i], tokens[i], parse._tags[i], parse._tags[i], 'null', parse._arcs[i] + 1, 'null', '-', '-')
+            dg = DependencyGraph(conll_format)
+            score = self.compute_prob(dg)
+            if score > max_score:
+                max_parse = dg.tree()
+                max_score = score
+        print '3'
+        return [max_parse, max_score]
+
+    def compute_prob(self, dg):
+        """
+        Computes the probability of a dependency graph based
+        on the parser's probability model (defined by the parser's
+        statistical dependency grammar).
+
+        :param dg: A dependency graph to score.
+        :type dg: DependencyGraph
+        :return: The probability of the dependency graph.
+        :rtype: int
+        """
+        prob = 1.0
+        for node_index in range(1,len(dg.nodelist)):
+            children = dg.nodelist[node_index]['deps']
+            nr_left_children = dg.left_children(node_index)
+            nr_right_children = dg.right_children(node_index)
+            nr_children = nr_left_children + nr_right_children
+            for child_index in range(0 - (nr_left_children + 1), nr_right_children + 2):
+                head_word = dg.nodelist[node_index]['word']
+                head_tag = dg.nodelist[node_index]['tag']
+                child = 'STOP'
+                child_tag = 'STOP'
+                prev_word = 'START'
+                prev_tag = 'START'
+                if child_index < 0:
+                    array_index = child_index + nr_left_children
+                    if array_index >= 0:
+                        child = dg.nodelist[children[array_index]]['word']
+                        child_tag = dg.nodelist[children[array_index]]['tag']
+                    if child_index != -1:
+                        prev_word = dg.nodelist[children[array_index + 1]]['word']
+                        prev_tag =  dg.nodelist[children[array_index + 1]]['tag']
+                    head_event = '(head (%s %s) (mods (%s, %s, %s) left))' % (child, child_tag, prev_tag, head_word, head_tag)
+                    mod_event = '(mods (%s, %s, %s) left))' % (prev_tag, head_word, head_tag)
+                    h_count = self._grammar._events[head_event]
+                    m_count = self._grammar._events[mod_event]
+                    if m_count == 0:
+                        print h_count, 1
+                        print mod_event
+                    prob *= (h_count / m_count)
+                elif child_index > 0:
+                    array_index = child_index + nr_left_children - 1
+                    if array_index < nr_children:
+                        child = dg.nodelist[children[array_index]]['word']
+                        child_tag = dg.nodelist[children[array_index]]['tag']
+                    if child_index != 1:
+                        prev_word = dg.nodelist[children[array_index - 1]]['word']
+                        prev_tag =  dg.nodelist[children[array_index - 1]]['tag']
+                    head_event = '(head (%s %s) (mods (%s, %s, %s) right))' % (child, child_tag, prev_tag, head_word, head_tag)
+                    mod_event = '(mods (%s, %s, %s) right))' % (prev_tag, head_word, head_tag)
+                    h_count = self._grammar._events[head_event]
+                    m_count = self._grammar._events[mod_event]
+                    if m_count == 0:
+                        print h_count, 1
+                        print mod_event
+                    prob *= (h_count / m_count)
+        #prob = 1
+        return prob
+
+def demo():
+    t = load()
+    #grammar = restore()
+    #ppdp = XTAGParser()
+    #ppdp._grammar = grammar
+    viewer = DependencyGraphView(t)
+    viewer.mainloop()
 
 
-def nonprojective_parse(sent):
+def projective_parse(sent):
     words = word_tokenize(sent)
-    tag_tuples = pos_tag(words)
-    tags = [tag for word, tag in tag_tuples]
-    label_freqdist, feature_probdist = restore()
-    npp = ProbabilisticNonprojectiveParser()
-    npp.train([], XTAGScorer(label_freqdist, feature_probdist))
-    parse_graph = npp.parse(words, tags)
-    print parse_graph
-
-
-def dump():
+    #tag_tuples = pos_tag(words)
+    #tags = [tag for word, tag in tag_tuples]
+    
+    #print time.time()
+    grammar = restore()
+    #print time.time()
+    
+    """
     string = ''
     import os
-    #directory = os.path.join('/Users/zhanghaotian/Downloads/','penn-wsj-deps')
+    directory = os.path.join('/Users/zhanghaotian/Downloads','penn-wsj-deps')
     for root,dirs,files in os.walk(directory):
         for d in dirs:
             if d != '00' and d!= '01' and d!='22' and d!='23' and d!='24':
@@ -55,49 +179,82 @@ def dump():
                         fp = open(f, 'r').readlines()
                         for a in fp:
                             string += a
+
+    print len(string)
     graphs = [DependencyGraph(entry)
               for entry in string.split('\n\n') if entry]
-    npp = ProbabilisticNonprojectiveParser()
-    npp.train(graphs, NaiveBayesDependencyScorer())
-    label_freqdist = npp._scorer.classifier._label_probdist
-    feature_probdist = npp._scorer.classifier._feature_probdist
+    ppdp = XTAGParser()
+    ppdp.train(graphs)
+    """
+    ppdp = XTAGParser()
+    ppdp._grammar = grammar
+    print words
+    parse_graph = ppdp.parse(words)
+    print parse_graph[0]
+
+
+def dump():
+    string = ''
+    import os
+    directory = os.path.join('/Users/zhanghaotian/Downloads','penn-wsj-deps')
+    for root,dirs,files in os.walk(directory):
+        for d in dirs:
+            if d != '00' and d!= '01' and d!='22' and d!='23' and d!='24':
+                direct = os.path.join(directory, d)
+                for root,dirs,files in os.walk(direct):
+                    for f in files:
+                        f = os.path.join(direct,f)
+                        fp = open(f, 'r').readlines()
+                        for a in fp:
+                            string += a
+    print len(string)
+    graphs = [DependencyGraph(entry)
+              for entry in string.split('\n\n') if entry]
+    ppdp = ProbabilisticProjectiveDependencyParser()
+    ppdp.train(graphs)
+    dump_to_disk('ppdp_grammar.pickles', ppdp._grammar)
+    print 'finish.'
+    #label_freqdist = npp._scorer.classifier._label_probdist
+    #feature_probdist = npp._scorer.classifier._feature_probdist
     #print_train_data(label_freqdist, feature_probdist, 'data.txt')
-    dump_to_disk('lfd', label_freqdist)
-    dump_to_disk('fpd', feature_probdist)
+    #dump_to_disk('lfd', label_freqdist)
+    #dump_to_disk('fpd', feature_probdist)
 
 def restore():
-    lfd = nltk.data.find('xtag_grammar/pickles/lfd').open()
-    fpd = nltk.data.find('xtag_grammar/pickles/fpd').open()
-    label_freqdist = restore_from_disk(lfd)
-    feature_probdist = restore_from_disk(fpd)
-    return (label_freqdist, feature_probdist)
+    grammar_file = nltk.data.find('xtag_grammar/pickles/ppdp_grammar.pickles').open()
+    #fpd = nltk.data.find('xtag_grammar/pickles/fpd').open()
+    grammar = restore_from_disk(grammar_file)
+    #feature_probdist = restore_from_disk(fpd)
+    return grammar
 
-def dump_to_disk(filename,obj):
-    """
-    Dump an object into the disk using pickle
-    
-    :param filename: The name of the dumping file
-    :type filename: str
-    :param obj: Any object you want to dump
-    :type obj: Any object
-    """
-    fp = open(filename,'wb')
-    pickle.dump(obj,fp)
+
+def print_lable_dist(lable_dist,fp):
+    d = lable_dist.freqdist()
+    for i in d.keys():
+        fp.write(i + ' ' + str(d[i]) + '\n')
+    fp.write('?????\n')
+    return
+
+def print_feature_dist(feature_dist,fp):
+    for i in feature_dist.keys():
+        # For debugging
+        if len(i) != 2:
+            raise ValueError('Invalid tuple in feature_dist')
+        
+        fp.write(i[0] + ' ' + i[1] + ' ' + str(feature_dist[i]._bins) + '\n')
+        d = feature_dist[i].freqdist()
+        for j in d.keys():
+            fp.write(str(j) + ' ' + str(d[j]) + '\n')
+        fp.write(';;;;;\n')
+    return
+        
+
+def print_train_data(lable_dist,feature_dist,filename="TAGParseData.dat"):
+    fp = open(filename, 'w')
+    print_lable_dist(lable_dist,fp)
+    print_feature_dist(feature_dist,fp)
     fp.close()
 
-def restore_from_disk(filename):
-    """
-    Restore the dumped file using pickle to an obejct
-    
-    :param filename: The file you want to read from
-    :type filename: str
-    :return: The restored object
-    :rtype: Any object
-    """
-    fp = open(filename,'rb')
-    obj = pickle.load(fp)
-    fp.close()
-    return obj
 
 ####################################
 # Tree Compatibility ###############
@@ -418,5 +575,8 @@ def debug_check_name_equality():
     print check_name_equality('S_r',"Ss")
     
 if __name__ == '__main__':
-#    debug_check_name_equality()
-    nonprojective_parse('Chicago\'s new school chief is the hard-nosed Ted Kimbrough.')
+    #debug_check_name_equality()
+    #test()
+    #dump()
+    demo()
+    #projective_parse('Hells Angels was formed in 1948 and incorporated in 1966.')
