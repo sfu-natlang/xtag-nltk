@@ -56,29 +56,29 @@ def install():
     try:
         nltk.data.find('xtag_grammar/pickles/tagtreeset.pickle')
     except LookupError:
-        cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
-    
-        cata = get_catalog(cata_str)
-        #start = time.time()
-
-        sfs = get_start_feature(cata)
-        t = parse_from_files(cata, 'tree-files')
-        t += parse_from_files(cata, 'family-files')
-        t.set_start_fs(sfs)
-
         for path_item in nltk.data.path:
 
         # Is the path item a zipfile?
             p = os.path.join(path_item, *'xtag_grammar'.split('/'))
         #p = os.path.join(path_item, ['xtag_grammar'])
             if os.path.exists(p):
+                t = init_tree()
                 pic_dir = os.path.join(p, 'pickles')
                 if not os.path.exists(pic_dir):
                     os.makedirs(pic_dir)
                 tree_dir = os.path.join(pic_dir, 'tagtreeset.pickle')
-                dump_to_disk('tagtreeset.pickle', t)
+                dump_to_disk(tree_dir, t)
                 return
 
+def init_tree():
+    cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
+    cata = get_catalog(cata_str)
+    sfs = get_start_feature(cata)
+    t = parse_from_files(cata, 'tree-files')
+    t += parse_from_files(cata, 'family-files')
+    t.set_start_fs(sfs)
+    return t
+    
 def load():
     cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
     
