@@ -23,10 +23,61 @@ from nltk.sem.logic import (Variable, Expression)
 from nltk.draw.util import *
 from nltk.tokenize import word_tokenize
 from collections import defaultdict
-from parse import dump_to_disk, restore_from_disk
 import time
 import nltk.data
 import pickle
+
+def dump_to_disk(filename,obj):
+    """
+    Dump an object into the disk using pickle
+    :param filename: The name of the dumping file
+    :type filename: str
+    :param obj: Any object you want to dump
+    :type obj: Any object
+    """
+    fp = open(filename,'wb')
+    pickle.dump(obj,fp, -1)
+    fp.close()
+
+def restore_from_disk(fp):
+    """
+    Restore the dumped file using pickle to an obejct
+    :param filename: The file you want to read from
+    :type filename: str
+    :return: The restored object
+    :rtype: Any object
+    """
+    #fp = open(filename,'rb')
+    obj = pickle.load(fp)
+    #fp.close()
+    return obj
+
+def install():
+    try:
+        nltk.data.find('xtag_grammar/pickles/tagtreeset.pickle')
+    except LookupError:
+        cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
+    
+        cata = get_catalog(cata_str)
+        #start = time.time()
+
+        sfs = get_start_feature(cata)
+        t = parse_from_files(cata, 'tree-files')
+        t += parse_from_files(cata, 'family-files')
+        t.set_start_fs(sfs)
+
+        for path_item in nltk.data.path:
+
+        # Is the path item a zipfile?
+            p = os.path.join(path_item, *'xtag_grammar'.split('/'))
+        #p = os.path.join(path_item, ['xtag_grammar'])
+            if os.path.exists(p):
+                pic_dir = os.path.join(p, 'pickles')
+                if not os.path.exists(pic_dir):
+                    os.makedirs(pic_dir)
+                tree_dir = os.path.join(pic_dir, 'tagtreeset.pickle')
+                dump_to_disk('tagtreeset.pickle', t)
+                return
 
 def load():
     cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
@@ -2110,7 +2161,6 @@ def demo():
     #print tree.search('VP').get_top_feature()
     #print id(tree.search('VP').get_top_feature()['mode'])
     #print id(tree.search('S_r').get_bottom_feature()['mode'])
-    tree.search('S_r').set_bottom_feature('mode', '1')
     #print tree.search('S_r').get_bottom_feature()
     #print tree.search('VP').get_top_feature()
     #print tree
@@ -2120,5 +2170,6 @@ def demo():
 
 
 if __name__ == '__main__':
-    demo()
+    #demo()
     #load()
+    install()
