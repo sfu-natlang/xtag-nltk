@@ -429,47 +429,51 @@ def get_start_feature(node):
 # Analyze Morphology File ##################
 ############################################
 
-def analyze_morph(s):
-    # The return value is a dictionary using words in the sentence as index. The
-    # entry is a list, the element of which is a tuple. The first element of the
-    # tuple is the lexicon, the second element of the tuple is the type of this lex,
-    # and the third element of the tuple is again a list 
-    # the entries of which are strings indicating the features.
+def analyze_morph(morph_file_string):
     """
-    analyze_morph(string) -> dictionary
-    
-    This function accepts input as a string read form file 'morph_english.flat'
-    which contains the morphology information of XTAG system. The output is a
-    dictionary using a single word as index and returns the morphology entry.
+    Analyze the morph file in XTAG grammar.
+
+    :param morph_file_string: The string read from the morph file
+    :type morph_file_string: str
+    :return: A dictionary repersenting the morph
+    :rtype: dict(str,list(tuple(str,str,list(str))))
+
+    This function does the parsing in the line order. Each line has a format like
+    this,
+
+    [index in morph] ([index in syntax] [POS in syntax] ([possible features])*)+
+
+    in which the possible feature is the feature defined in the template file
+    starting with '@'.
+
+    The return value is a complex one. It is a dictionary using string (word in
+    any form) as index, and the value is itself a list. The entries in the list
+    some tuples indicating all possible morphs for that word. The tuple has three
+    components, the first of which is the index in syntax, and the second is POS
+    in syntax, while the third component is a list, which contains the features
+    in the template.
     """
     morph = {}
-    lines = s.splitlines()
+    lines = morph_file_string.splitlines()
     for l in lines:
-        if l == '':
+        # Filters out all blank lines using isspace() which filters out '\n' ' '
+        if l.isspace() == True:
             continue
-
-        sub_line = []
-        start = 0
-        while True:
-            index = l.find('#',start)
-            if index == -1:
-                sub_line.append(l[start:].split())
-                break
-            else:
-                sub_line.append(l[start:index].split())
-                start = index + 1
-        #print sub_line
-        morph_list = []
-        for i in range(0,len(sub_line)):
-            m = sub_line[i]
-            if i == 0:
-                morph_list.append((m[1],m[2],m[3:]))
-            else:
-                morph_list.append((m[0],m[1],m[2:]))
-                
-        morph[sub_line[0][0]] = morph_list
+        index_pos_feature = l.split('#')
+        # This is special
+        m = index_pos_feature[0].split()
+        # The first index_pos_feature is different since the first element after
+        # split() is the index for the dictionary
+        dict_key = m[0]
+        morph_list = []  # To record multiple morphs in a line
+        morph_list.append((m[1],m[2],m[3:]))
+        for i in index_pos_feature[1:]:
+            m = i.split()
+            morph_list.append((m[0],m[1],m[2:]))
+        morph[dict_key] = morph_list
         
     return morph
+        
 
 ##############################################
 # Analyze Syntax File ########################
@@ -1030,8 +1034,127 @@ def match_feature(feature,regexp,operation=0):
     else:
         return new_feature
 
+######################################
+# Word and feature conversion ########
+######################################
+
 dicts = None
 inited = False
+
+pos_mapping_syn_to_morph = {
+    'N':'N',
+    'A':'A',
+    'V':'V',
+    'Ad':'Adv',
+    'PL':'Part',
+    'p':'Prep',
+    'D':'Det',
+    'Conj':'Conj',
+    'Punct':'Punct',
+    'I':'I',
+    'G':'G',
+    'Comp','Comp'
+    }
+
+def check_pos_equality(morph_pos,syntax_pos):
+    return pos_mapping_syn_to_morph(syntax_pos) == morph_pos
+    
+
+def check_init():
+    """
+    Checks whether the dictionary has been initialized with some morph, syntax
+    and template. If not there will be a KeyError raised.
+    """
+    global inited
+    if inited == False:
+        raise KeyError("Initial file name not provided. Please run init() first.")
+    return
+
+def word_to_morph(word):
+    """
+    Accepts a word as the parameter amd returns all morphs pf that word.
+
+    :param word: The word you want to search
+    :type word: str
+
+    :return: The morph of the word
+    :rtype: tuple(bool,list,str)
+
+    The first component of the return value is True or False, True means the
+    word exist in the morph, so we can use it as a normal word. False means
+    there is not an entry, and we will use the default grammar.
+
+    The third component is actually the word for searching in the syntax.
+    """
+    global dicts
+    check_init()
+
+    if dicts[0].has_key(word):
+        morph = dicts[0][word]
+        ret = (True,morph)
+    else:
+        morph = dicts[0]['%s']
+        ret = (False,morph)
+        
+    return ret
+
+def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
+    """
+    Accept morph entry as parameter and returns syntax entries.
+    
+    :param morph_entry: An entry in the morph list. Actually it should be
+    an element of the result of word_to_morph()
+    :type morph_entry: A morph entry, the structure is illustrated in analyze_morph()
+    :param word_exist: Whether the word has been seen in the morph
+    :typr word_exist: bool
+    :param word: The original word
+    :type word: str
+    :param check_pos: Whether we should check POS equality before searching
+    for feature structures.
+    :type check_pos: bool
+    :return: A component of the return value of word_to_features()
+    :rtype: tuple
+    """
+    global dicts
+    result = []
+    syn_entry = dicts[1][morph_entry[0]]  # For both %s and other this is the same
+    #######
+    # syn_entry is the set of lines having the same index, of the same importance
+    # syn_entry[i] is one line with a particular index
+    # syn_entry[i][0] is the set of <<ENTRY>>sth<<POS>>N, a list
+    # syn_entry[i][0][j] is a certain <<ENTRY>>sth<<POS>>N, s tuple
+    # syn_entry[i][0][0] is the morph of the word, which is usually the same as the index
+    # syn_entry[i][0][j][0] is the string of the word
+    # syn_entry[i][0][j][1] is the POS of the word
+    ######
+    for i in syn_entry:
+        accept_morph = (morph_entry[0] == i[0][0][0])
+        accept_exist = (word_exist == False)
+
+        if check_pos == True:  # We will check the pos
+            # Move it to here to reduce calculation
+            accept_pos = (morph_entry[1] == i[0][0][1])
+            accept = (accept_morph and accept_pos) or accept_exist
+        else:  # Do not check pos
+            accept = accept_morph or accept_exist
+
+        if accept:
+            morph_feature = []
+            syn_feature = []
+            for sf in i[3]:  # Like #Something which can be searched in the feature dictionary
+                syn_feature.append(dicts[2][1][sf[1:]])
+            for mf in entry[2]:
+                morph_feature.append(dicts[2][0][mf])
+
+            if word_exist == False:
+                entry_pos_list = [(word,i[0][0][1])] # The list has only one entry
+            else:
+                entry_pos_list = i[0]
+            tree_list = i[1]
+            family_list = i[2]
+            result.append((entry_pos_list,tree_list,family_list,syn_feature,morph_feature,morph_entry[1:]))
+            
+    return result
 
 def word_to_features(word):
     # This function will convert the word into the feature structures associated
@@ -1049,46 +1172,44 @@ def word_to_features(word):
     To run this function, the initialization procedure init() must be called, or
     an exception will be thrown.
     """
-    if inited == False:
-        raise KeyError("Initial file name not provided. Please run init() first.")
-
-    global dicts
     result = []
-    #print dicts[0][word]
-    # If this word doesn't exist then we will just make a mark, and inside the loop
-    # we will just use the syntax from syndefaults.dat instead of from dicts[1]
-    if not dicts[0].has_key(word):
-        unexist = True
-        original_word = word
-        word = '%s'
-    else:
-        unexist = False
-    for entry in dicts[0][word]:
-        #print entry
-        if unexist == False:
-            temp_feature = dicts[1][entry[0]]
-        else:
-            temp_feature = dicts[1]['%s']
-        
-        for i in temp_feature:
-            #print entry[0], " ",i[0][0][0]
-            #print entry[1],"",i[0][0][1]
-            if (i[0][0][0] == entry[0] and i[0][0][1] == entry[1]) or unexist == True:
-                features = []
-                features2 = []
-                for j in i[3]:
-                    features.append(dicts[2][1][j[1:]])
-                for j in entry[2]:
-                    features2.append(dicts[2][0][j])
+    morph_ret = word_to_morph(word)
+    morph = morph_ret[1]      # List of morph
+    word_exist = morph_ret[0] # Whether the word exists
+    
+    # Each entry in morph has the following structure
+    # tuple(morph,POS,list of features), and for the same word the morph can be
+    # different, so we must 
+    for morph_entry in morph: 
+    #    if word_exist == True:
+    #        temp_feature = dicts[1][entry[0]]
+    #    else:
+    #        temp_feature = dicts[1]['%s']
+    #    
+    #    for i in temp_feature:
+    #        if (i[0][0][0] == entry[0] and i[0][0][1] == entry[1]) or unexist == True:
+    #            features = []
+    #            features2 = []
+    #            for j in i[3]:
+    #                features.append(dicts[2][1][j[1:]])
+    #            for j in entry[2]:
+    #                features2.append(dicts[2][0][j])
+    #
+    #            if unexist == True:
+    #                new_i0 = [(original_word,i[0][0][1])]
+    #            else:
+    #                new_i0 = i[0]
+    #            result.append((new_i0,i[1],i[2],features,features2,entry[1:]))
+        feature_list = morph_to_feature(morph_entry,word_exist,word)
+        result += feature_list
 
-                if unexist == True:
-                    new_i0 = [(original_word,i[0][0][1])]
-                else:
-                    new_i0 = i[0]
-                result.append((new_i0,i[1],i[2],features,features2,entry[1:]))
-                
+    # Some emergency processing
+    if len(result) == 0:  # No word selected, we will loosen the condition
+        for morph_entry in morph:
+            feature_list = morph_to_feature(morph_entry,word_exist,word,False)
+            result += feature_list
+            
     return result
-        #print dicts[1][entry[0]]
 
 def tree_to_words(tree_name):
     global dicts
@@ -1113,38 +1234,32 @@ def init(morph,syntax,temp,default):
     """
     global inited
     global dicts
-    #fp = open(morph)
+
     s = morph
     morph_dict = analyze_morph(s)
-    #fp.close()
 
-    #fp = open(default)
     default_syntax = default
-    #fp.close()
 
-    #fp = open(syntax)
     s = syntax
     s += "\n" + default_syntax
     # syntax_dict[0] is the dict for forward query, i.e. from word to trees and to feature structures
     # and syntax_dict[1] is the dict for reverse query, i.e. from tree name to entries (word or words)
     syntax_dict = analyze_syntax(s)
-    #print default_syntax
-    #fp.close()
 
-    #fp = open(temp)
     s = temp
     template_dict = analyze_template(s)
-    #fp.close()
 
     dicts = (morph_dict,syntax_dict[0],template_dict,syntax_dict[1])
 
     #### Patch for using default grammar: add '%s' into dicts[0] ####
-    temp = dicts[1]['%s']
     dicts[0]['%s'] = []
-    for i in temp:
+    for i in dicts[1]['%s']:
         dicts[0]['%s'].append(('%s',i[0][0][1],""))
-    ###
+    ### Please Notice that there is not a line '%s' in the file, it is
+    ### inserted here.
+        
     inited = True
+    
     return
 
 def debug():
