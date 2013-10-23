@@ -425,6 +425,7 @@ def get_option_value(node,opt_name):
 def get_start_feature(node):
     s = get_option_value(node,'start-feature')
     return parse_feature_in_catalog(s)
+
 ############################################
 # Analyze Morphology File ##################
 ############################################
@@ -1041,23 +1042,11 @@ def match_feature(feature,regexp,operation=0):
 dicts = None
 inited = False
 
-pos_mapping_syn_to_morph = {
-    'N':'N',
-    'A':'A',
-    'V':'V',
-    'Ad':'Adv',
-    'PL':'Part',
-    'p':'Prep',
-    'D':'Det',
-    'Conj':'Conj',
-    'Punct':'Punct',
-    'I':'I',
-    'G':'G',
-    'Comp','Comp'
-    }
-
 def check_pos_equality(morph_pos,syntax_pos):
-    return pos_mapping_syn_to_morph(syntax_pos) == morph_pos
+    if dicts[4].has_key(syntax_pos):
+        return dicts[4](syntax_pos) == morph_pos
+    else:
+        return morph_pos == syntax_pos
     
 
 def check_init():
@@ -1133,7 +1122,7 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
 
         if check_pos == True:  # We will check the pos
             # Move it to here to reduce calculation
-            accept_pos = (morph_entry[1] == i[0][0][1])
+            accept_pos = check_pos_equality(morph_entry[1],i[0][0][1])
             accept = (accept_morph and accept_pos) or accept_exist
         else:  # Do not check pos
             accept = accept_morph or accept_exist
@@ -1218,7 +1207,24 @@ def tree_to_words(tree_name):
     else:
         return dicts[3][tree_name]
 
-def init(morph,syntax,temp,default):
+def make_pos_mapping(s):
+    lines = s.splitlines()
+    mapping = {}
+    for l in lines:
+        if l.strip() == '':
+            continue
+        lr = l.split('->')
+        if len(lr) != 2:
+            raise ValueError('Not a valid line in the mapping file: %s\n' % (l))
+        lr[0] = lr[0].strip()
+        lr[1] = lr[1].strip()
+        if mapping.has_key(lr[0]):
+            raise KeyError('Key %s already exists!' % (lr[0]))
+        mapping[lr[0]] = lr[1]
+
+    return mapping
+
+def init(morph,syntax,temp,default,mapping):
     # This function will initiate the environment where the XTAG grammar
     # system will run.
     # morph is the path of trunc_morph.flat
@@ -1249,7 +1255,11 @@ def init(morph,syntax,temp,default):
     s = temp
     template_dict = analyze_template(s)
 
-    dicts = (morph_dict,syntax_dict[0],template_dict,syntax_dict[1])
+    #### Do pos mapping
+    mapping_dict = make_pos_mapping(mapping)
+    ####
+
+    dicts = (morph_dict,syntax_dict[0],template_dict,syntax_dict[1],mapping_dict)
 
     #### Patch for using default grammar: add '%s' into dicts[0] ####
     dicts[0]['%s'] = []
@@ -1257,7 +1267,7 @@ def init(morph,syntax,temp,default):
         dicts[0]['%s'].append(('%s',i[0][0][1],""))
     ### Please Notice that there is not a line '%s' in the file, it is
     ### inserted here.
-        
+    
     inited = True
     
     return
@@ -1358,6 +1368,23 @@ def debug_test_contain():
     fs100['__or_789'] = 789
     print test_contain(fs100,fs101)
 
+def debug_make_pos_mapping():
+    s = """
+    N -> N
+    A -> A
+    V -> V
+    Ad -> Adv
+    PL -> Part
+    P -> Prep
+    D -> Det
+    Conj -> Conj
+    Punct -> Punct
+    I -> I
+    G -> G
+    Comp -> Comp
+    """ 
+    print make_pos_mapping(s)
+
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
     #debug_get_path_list()
@@ -1367,4 +1394,5 @@ if __name__ == "__main__":
     #debug_get_all_path()
     #debug_modify_feature_referece()
     #debug_restore_reference()
-    debug_test_contain()
+    #debug_test_contain()
+    debug_make_pos_mapping()
