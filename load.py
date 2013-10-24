@@ -1117,12 +1117,20 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
     # syn_entry[i][0][j][1] is the POS of the word
     ######
     for i in syn_entry:
-        accept_morph = (morph_entry[0] == i[0][0][0])
+        word_pos = 0
+        # First find the morph we are going to seaech in the morph list
+        # i.e. i[0]. We cannot always assume that the morph is the first one
+        for j in range(0,len(i[0])):
+            if i[0][j][0] == morph_entry[0]:
+                word_pos = j
+                break
+        
+        accept_morph = (morph_entry[0] == i[0][word_pos][0])
         accept_exist = (word_exist == False)
 
         if check_pos == True:  # We will check the pos
             # Move it to here to reduce calculation
-            accept_pos = check_pos_equality(morph_entry[1],i[0][0][1])
+            accept_pos = check_pos_equality(morph_entry[1],i[0][word_pos][1])
             accept = (accept_morph and accept_pos) or accept_exist
         else:  # Do not check pos
             accept = accept_morph or accept_exist
@@ -1385,6 +1393,9 @@ def debug_make_pos_mapping():
     """ 
     print make_pos_mapping(s)
 
+def debug_word_to_features():
+    word_to_features('be')
+
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
     #debug_get_path_list()
@@ -1395,4 +1406,5 @@ if __name__ == "__main__":
     #debug_modify_feature_referece()
     #debug_restore_reference()
     #debug_test_contain()
-    debug_make_pos_mapping()
+    #debug_make_pos_mapping()
+    debug_word_to_features()
