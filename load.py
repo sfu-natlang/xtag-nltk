@@ -1044,10 +1044,7 @@ inited = False
 
 def check_pos_equality(morph_pos,syntax_pos):
     if dicts[4].has_key(syntax_pos):
-        for morph_dict_pos in dicts[4][syntax_pos]:
-            if morph_dict_pos == morph_pos:
-                return True
-        return False
+        return dicts[4][syntax_pos] == morph_pos
     else:
         return morph_pos == syntax_pos
     
@@ -1120,12 +1117,7 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
     # syn_entry[i][0][j][1] is the POS of the word
     ######
     for i in syn_entry:
-        accept_morph = False
-        for j in i[0]:
-            if j[0] == morph_entry[0]:
-                accept_morph = True
-        # We shouldn't always assume that the morph is the first entry in the list
-        #accept_morph = (morph_entry[0] == i[0][0][0])
+        accept_morph = (morph_entry[0] == i[0][0][0])
         accept_exist = (word_exist == False)
 
         if check_pos == True:  # We will check the pos
@@ -1225,12 +1217,10 @@ def make_pos_mapping(s):
         if len(lr) != 2:
             raise ValueError('Not a valid line in the mapping file: %s\n' % (l))
         lr[0] = lr[0].strip()
-        lr[1] = lr[1].split()
-        for pos_morph in lr[1]:
-            if mapping.has_key(lr[0]):
-                mapping[lr[0]].append(pos_morph)
-            else:
-                mapping[lr[0]] = [pos_morph]
+        lr[1] = lr[1].strip()
+        if mapping.has_key(lr[0]):
+            raise KeyError('Key %s already exists!' % (lr[0]))
+        mapping[lr[0]] = lr[1]
 
     return mapping
 
@@ -1395,9 +1385,6 @@ def debug_make_pos_mapping():
     """ 
     print make_pos_mapping(s)
 
-def debug_check_pos_equality():
-    print check_pos_equality('PropN','N')
-
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
     #debug_get_path_list()
@@ -1408,5 +1395,4 @@ if __name__ == "__main__":
     #debug_modify_feature_referece()
     #debug_restore_reference()
     #debug_test_contain()
-    #debug_make_pos_mapping()
-    debug_check_pos_equality()
+    debug_make_pos_mapping()
