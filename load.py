@@ -1120,10 +1120,10 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
     # syn_entry[i][0][j][1] is the POS of the word
     ######
     for i in syn_entry:
+        accept_morph = False
         for j in i[0]:
             if j[0] == morph_entry[0]:
                 accept_morph = True
-        accept_morph = False
         # We shouldn't always assume that the morph is the first entry in the list
         #accept_morph = (morph_entry[0] == i[0][0][0])
         accept_exist = (word_exist == False)
