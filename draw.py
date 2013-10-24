@@ -247,6 +247,7 @@ class LexView(object):
                             self._tagset[index] = TAGTreeSet()
                         fset = self._tagset[index]
                         self._lex_tag_set([morph], fset)
+        self._tagset.set_start_fs(self._alltrees.start_fs)
         self._treeview.update(self._tagset)
         self._count = {}
 
