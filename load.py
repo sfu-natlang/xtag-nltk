@@ -617,14 +617,17 @@ def analyze_template(s):
                 elif index != -1:
                     lhs = f[:index].strip()
                     rhs = f[index + 1:].strip()
+                    ref = False # If not a reference then ref is by default True
                     if rhs[0] == '@':      # rhs can also be reference
                         rhs = feature_list[rhs[1:]]
+                        ref = True # Used in make_fs
                     if lhs[0] != '<' or lhs[-1] != '>':
                         raise TypeError('The left hand side of a feature structure must be wrapped with <>')
                     lhs = lhs[1:-1]
                     path = lhs.split()
                     #path.reverse()    # This method is in-place
-                    fs = fs.unify(make_fs(path,rhs,1))
+                    print "rhs = %s" % (rhs)
+                    fs = fs.unify(make_fs(path,rhs,ref))
                 else:
                     raise TypeError('Invalid line in template file.')
             feature_list[name] = fs
@@ -1396,6 +1399,9 @@ def debug_make_pos_mapping():
 def debug_word_to_features():
     word_to_features('be')
 
+def debug_analyze_template():
+    print analyze_template('@NOM-ACC-ASSIGN <assign-case>=nom/acc!')
+
 if __name__ == "__main__":
     #debug_parse_feature_in_catalog()
     #debug_get_path_list()
@@ -1407,4 +1413,5 @@ if __name__ == "__main__":
     #debug_restore_reference()
     #debug_test_contain()
     #debug_make_pos_mapping()
-    debug_word_to_features()
+    #debug_word_to_features()
+    debug_analyze_template()
