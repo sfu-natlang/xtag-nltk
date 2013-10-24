@@ -830,6 +830,10 @@ def get_path_list(s):
         raise ValueError("No colon found in the path given.")
     left = s[:colon]
     right = s[colon + 2:-1]
+    # Some features may not have a '.b' or '.t' explicitly so we assume that
+    # there is a '.b' by default
+    if left.find('.') == -1:
+        left += '.b'
     right = [left] + right.split(' ')
     return right
     
