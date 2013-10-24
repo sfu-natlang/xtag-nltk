@@ -57,19 +57,28 @@ def install():
     """
     Install pickle file of the TAG forest to speed up.
     """
+    language = 'english'
     try:
-        nltk.data.find('xtag_grammar/pickles/tagtreeset.pickle')
+        nltk.data.find('xtag_grammar/'+language+'/pickles/tagtreeset.pickle')
     except LookupError:
-        for path_item in nltk.data.path:
-            p = os.path.join(path_item, *'xtag_grammar'.split('/'))
-            if os.path.exists(p):
-                t = init_tree()
-                pic_dir = os.path.join(p, 'pickles')
-                if not os.path.exists(pic_dir):
-                    os.makedirs(pic_dir)
-                tree_dir = os.path.join(pic_dir, 'tagtreeset.pickle')
-                dump_to_disk(tree_dir, t)
-                return
+        update()
+
+def update():
+    """
+    Update pickle file of the TAG forest to speed up.
+    """
+    language = 'english'
+    for path_item in nltk.data.path:
+        d = 'xtag_grammar/'+language
+        p = os.path.join(path_item, *d.split('/'))
+        if os.path.exists(p):
+            t = init_tree()
+            pic_dir = os.path.join(p, 'pickles')
+            if not os.path.exists(pic_dir):
+                os.makedirs(pic_dir)
+            tree_dir = os.path.join(pic_dir, 'tagtreeset.pickle')
+            dump_to_disk(tree_dir, t)
+            return
 
 def init_tree():
     """
@@ -77,7 +86,8 @@ def init_tree():
     :return: The forest of all TAG trees
     :rype: TAGTreeSet
     """
-    cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
+    language = 'english'
+    cata_str = nltk.data.find('xtag_grammar/'+language+'/english.gram').open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
     t = parse_from_files(cata, 'tree-files')
@@ -93,22 +103,23 @@ def load():
     :return: The forest of all TAG trees
     :rype: TAGTreeSet
     """
-    cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
+    language = 'english'
+    cata_str = nltk.data.find('xtag_grammar/'+language+'/english.gram').open().read()
     
     cata = get_catalog(cata_str)
 
-    treefile = nltk.data.find('xtag_grammar/pickles/tagtreeset.pickle').open()
+    treefile = nltk.data.find('xtag_grammar/'+language+'/pickles/tagtreeset.pickle').open()
     treeset = restore_from_disk(treefile)
     morph = get_file_list(cata, 'morphology-files')
     syn = get_file_list(cata, 'lexicon-files')
     temp = get_file_list(cata, 'templates-files')
     default = get_file_list(cata, 'syntax-default')
 
-    morph_path = 'xtag_grammar' + os.sep + morph[1] + os.sep + morph[0][0]
-    syn_path = 'xtag_grammar' + os.sep + syn[1] + os.sep + syn[0][0]
-    temp_path = 'xtag_grammar' + os.sep + temp[1] + os.sep + temp[0][0]
-    default_path = 'xtag_grammar' + os.sep + default[1] + os.sep + default[0][0]
-    mapping_path = 'xtag_grammar' + os.sep + 'syntax_morph.mapping'
+    morph_path = 'xtag_grammar' + os.sep + language + os.sep + morph[1] + os.sep + morph[0][0]
+    syn_path = 'xtag_grammar' + os.sep + language + os.sep + syn[1] + os.sep + syn[0][0]
+    temp_path = 'xtag_grammar' + os.sep + language + os.sep + temp[1] + os.sep + temp[0][0]
+    default_path = 'xtag_grammar' + os.sep + language + os.sep + default[1] + os.sep + default[0][0]
+    mapping_path = 'xtag_grammar' + os.sep + language + os.sep + 'syntax_morph.mapping'
 
     morph_str = nltk.data.find(morph_path).open().read()
     syn_str = nltk.data.find(syn_path).open().read()
@@ -668,35 +679,12 @@ class GraphWidget(TreeWidget):
         # Build trees for children.
         for i in range(len(t)):
             child = t[i]
-            self._make_collapsed_trees(canvas, child, key + (i,))
-
-class TAGTreeSegmentWidget(TreeSegmentWidget):
-    """
-    A canvas widget that displays a single segment of a hierarchical
-    TAG tree, inherit from ``TreeSegmentWidget``, Each ``TAGTreeSegmentWidget``
-    contains an extra top feature strucuture and a bottom feature structure
-    than the ``TreeSegmentWidget``.
-    """
-    def __init__(self, canvas, node, subtrees, top_fs, bot_fs, **attribs):
-        """
-        :type top_fs:
-        :type bot_fs: FeatStruct
-        """
-        TreeSegmentWidget.__init__(self, canvas, node, 
-                                      subtrees, **attribs)
-        self._top_fs = top_fs
-        self._bot_fs = bot_fs
-
-    def top_fs(self):
-        return self._top_fs
-
-    def bot_fs(self):
-        return self._bot_fs        
+            self._make_collapsed_trees(canvas, child, key + (i,))    
 
 class TAGTreeWidget(TreeWidget):
     """
     A canvas widget that displays a single TAG Tree, inherit from 
-    ``TreeWidget``. ``TAGTreeWidget`` manages a group of ``TAGTreeSegmentWidgets``
+    ``TreeWidget``. ``TAGTreeWidget`` manages a group of ``TreeSegmentWidgets``
     that are used to display a TAG Tree. The each TAG Tree node
     contains a top feature structure and a bottom feature structure.
     The feature structures can be set to display or hidden on the canvas.
@@ -733,7 +721,7 @@ class TAGTreeWidget(TreeWidget):
         make_leaf = self._make_leaf
 
         if isinstance(t, TAGTree):
-            node_name = self._set_node_name(t)
+            node_name = self.get_node_name(t)
             bold = ('helvetica', -24, 'bold')
             node = make_node(canvas, node_name, font=bold,
                                 color='#004080')
@@ -774,7 +762,15 @@ class TAGTreeWidget(TreeWidget):
             self._leaves.append(leaf)
             return leaf
 
-    def _set_node_name(self, t):        
+    def get_node_name(self, t):    
+        """
+        Get the name of the current node, use specific symbols
+        for substitution node, head node and foot node.
+        :param t: Current node
+        :type t: TAGTree
+        :return: Node name
+        :rtype: str
+        """    
         if t.attr == 'subst':
             return t.node + u'\u2193'.encode('utf-8')
         elif t.attr == 'head':
@@ -2175,6 +2171,7 @@ def parse_from_files(cata, files):
     Get the TAGTreeSet from the gram file. The file format
     is defined in Upenn Xtag project.
     """
+    language = 'english'
     if not isinstance(files, basestring):
         raise TypeError('input should be a base string')
     tree_list = get_file_list(cata, files)
@@ -2184,7 +2181,7 @@ def parse_from_files(cata, files):
     file_names = tree_list[0]
     directory = tree_list[1]
     for fn in file_names:
-        path = 'xtag_grammar' + os.sep + directory + os.sep + fn
+        path = 'xtag_grammar' + os.sep + language + os.sep + directory + os.sep + fn
         #print path
         text = nltk.data.find(path).open().read()
         #text = open(path).read()
@@ -2287,4 +2284,22 @@ def tree_to_graphsegment(canvas, t, make_node=TextWidget,
     return _tree_to_graphseg(canvas, t, make_node, make_leaf,
                                 tree_attribs, node_attribs,
                                 leaf_attribs, loc_attribs)
+
+
+class TAGTreeSegmentWidget(TreeSegmentWidget):
+    A canvas widget that displays a single segment of a hierarchical
+    TAG tree, inherit from ``TreeSegmentWidget``, Each ``TAGTreeSegmentWidget``
+    contains an extra top feature strucuture and a bottom feature structure
+    than the ``TreeSegmentWidget``.
+    def __init__(self, canvas, node, subtrees, top_fs, bot_fs, **attribs):
+        TreeSegmentWidget.__init__(self, canvas, node, 
+                                      subtrees, **attribs)
+        self._top_fs = top_fs
+        self._bot_fs = bot_fs
+
+    def top_fs(self):
+        return self._top_fs
+
+    def bot_fs(self):
+        return self._bot_fs    
 """
