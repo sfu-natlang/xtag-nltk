@@ -1103,6 +1103,8 @@ class TAGTreeSetView(object):
         """
         Empty the treeview and TAG tree set.
         """
+        self._sfs_button['text'] = 'Add Start Features'
+        self._add_fs = True
         x = self._tagview.get_children()
         for item in x: 
             self._tagview.delete(item)
@@ -1349,7 +1351,7 @@ def _build_tree(tree_list, fs):
     else:
         sub_tree = []
         for i in range(1, len(tree_list)):
-	        sub_tree.append(_build_tree(tree_list[i], fs))
+            sub_tree.append(_build_tree(tree_list[i], fs))
         return TAGTree((node_name, top_fs, bot_fs), sub_tree, node_attr)
  
 def _parse_node(node_list):
@@ -2038,11 +2040,12 @@ def _fs_widget(feats, c, name, **attribs):
         if 'highlight' in d:
             match_list = re.split('(\[|\,|\])', match_str)
             result = ''
+            reg = reg.replace(',','')
+            reg = reg.replace(']','')
             for i in match_list:
                 try:    
                     result += re.compile(r'((%s\s*)+)' % reg).sub(r'<h>\1<h>', i)
                 except re.error, e:
-                    #print e
                     widget = _parse_to_widget(match_str, c)
                     return BracketWidget(c, widget, color='black', width=1)
             widget = _parse_to_widget(result, c, True)
@@ -2075,6 +2078,15 @@ def _fs_widget(feats, c, name, **attribs):
     return BracketWidget(c, widget, color='black', width=1)
 
 def _parse_to_widget(fstr, c, highlight=False):
+    print fstr
+    if fstr[:4] == '<h>,':
+        fstr = fstr[4:]
+    if fstr[-4:] == ']<h>':
+        fstr = fstr[:-3]
+    #fstr = fstr.replace("<h>><h>", ">")
+    fstr = fstr.replace("<h><h>", "<h>")
+    fstr = fstr.replace("<h>><h>", ">")
+    fstr = fstr.replace("<h>-<h>>", "->")
     wl = []
     l = _find_left_bracket(fstr)
     if l:
