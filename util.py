@@ -54,6 +54,9 @@ def restore_from_disk(fp):
     return obj
 
 def install():
+    """
+    Install pickle file of the TAG forest to speed up.
+    """
     try:
         nltk.data.find('xtag_grammar/pickles/tagtreeset.pickle')
     except LookupError:
@@ -72,6 +75,11 @@ def install():
                 return
 
 def init_tree():
+    """
+    Initialize the TAG tree Forests from tree files in xtag_grammar/grammar/
+    :return: The forest of all TAG trees
+    :rype: TAGTreeSet
+    """
     cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
@@ -82,6 +90,10 @@ def init_tree():
 
 
 def load():
+    """
+    Load the forest pickle to initilize the TAG forest, load the morphology files, lexicon
+    files, template files, syntax files
+    """
     #install()
     cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
     
@@ -106,14 +118,15 @@ def load():
     syn_path = 'xtag_grammar' + os.sep + syn[1] + os.sep + syn[0][0]
     temp_path = 'xtag_grammar' + os.sep + temp[1] + os.sep + temp[0][0]
     default_path = 'xtag_grammar' + os.sep + default[1] + os.sep + default[0][0]
-    
+    mapping_path = 'xtag_grammar' + os.sep + 'syntax_morph.mapping'
+
     morph_str = nltk.data.find(morph_path).open().read()
     syn_str = nltk.data.find(syn_path).open().read()
     temp_str = nltk.data.find(temp_path).open().read()
     default_str = nltk.data.find(default_path).open().read()
+    mapping_str = nltk.data.find(mapping_path).open().read()
 
-
-    init(morph_str, syn_str, temp_str, default_str)
+    init(morph_str, syn_str, temp_str, default_str, mapping_str)
     return treeset
 
 #    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
@@ -920,6 +933,8 @@ class TAGTreeView(TreeView):
         self._cframe = CanvasFrame(self._top)
         self._widgets = []
         self.redraw(True, trees)
+        if trees:
+            print trees.get_all_fs()
 
     def clear(self):
         """
