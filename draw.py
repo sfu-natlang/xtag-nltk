@@ -236,11 +236,15 @@ class LexView(object):
             for morph in lex_list:
                 if len(morph[0]) > 1:
                     phrases = [v[0] for v in morph[0]]
-                    if all(phrase in words for phrase in phrases):
+                    #print phrases
+                    #print words == phrases
+                    if words == phrases:
+                    #if all(phrase in words for phrase in phrases):
                         index = ''
                         for i in phrases:
                             index = index + i + ' '
-                        self._tagset[index] = TAGTreeSet()
+                        if not isinstance(self._tagset[index], TAGTreeSet):
+                            self._tagset[index] = TAGTreeSet()
                         fset = self._tagset[index]
                         self._lex_tag_set([morph], fset)
         self._treeview.update(self._tagset)
