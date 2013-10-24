@@ -626,7 +626,7 @@ def analyze_template(s):
                     lhs = lhs[1:-1]
                     path = lhs.split()
                     #path.reverse()    # This method is in-place
-                    print "rhs = %s" % (rhs)
+                    #print "rhs = %s" % (rhs)
                     fs = fs.unify(make_fs(path,rhs,ref))
                 else:
                     raise TypeError('Invalid line in template file.')
@@ -1090,6 +1090,19 @@ def word_to_morph(word):
         
     return ret
 
+def get_syntax_entry(morph_entry_zero):
+    """
+    :param morph_entry_zero: morph_entry[0] in morph_to_feature()
+    :type morph_entry_zero: str
+    :return: The syntax entry
+    :rtype: tuple(list,bool), the second value is an indicator to control
+    whether we should compare the morph.
+    """
+    if dicts[1].has_key(morph_entry_zero):
+        (return dicts[1][morph_entry_zero],False)
+    else:
+        (return dicts[1]['%s'],True)
+
 def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
     """
     Accept morph entry as parameter and returns syntax entries.
@@ -1109,7 +1122,7 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
     """
     global dicts
     result = []
-    syn_entry = dicts[1][morph_entry[0]]  # For both %s and other this is the same
+    (syn_entry,accept_morph_aux) = get_syntax_entry(morph_entry[0])
     #######
     # syn_entry is the set of lines having the same index, of the same importance
     # syn_entry[i] is one line with a particular index
@@ -1127,8 +1140,10 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
             if i[0][j][0] == morph_entry[0]:
                 word_pos = j
                 break
-        
-        accept_morph = (morph_entry[0] == i[0][word_pos][0])
+        # accept_morph_aux is used when the word has a morph but not in the syntax
+        # If it is the case then we will use %s syntax instead, and then the
+        # accept_morph_aux is always True to disable the accept_morph
+        accept_morph = (morph_entry[0] == i[0][word_pos][0]) or accept_morph_aux
         accept_exist = (word_exist == False)
 
         if check_pos == True:  # We will check the pos
