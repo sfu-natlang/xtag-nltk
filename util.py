@@ -61,10 +61,7 @@ def install():
         nltk.data.find('xtag_grammar/pickles/tagtreeset.pickle')
     except LookupError:
         for path_item in nltk.data.path:
-
-        # Is the path item a zipfile?
             p = os.path.join(path_item, *'xtag_grammar'.split('/'))
-        #p = os.path.join(path_item, ['xtag_grammar'])
             if os.path.exists(p):
                 t = init_tree()
                 pic_dir = os.path.join(p, 'pickles')
@@ -92,20 +89,13 @@ def init_tree():
 def load():
     """
     Load the forest pickle to initilize the TAG forest, load the morphology files, lexicon
-    files, template files, syntax files
+    files, template files, syntax files and mapping file
+    :return: The forest of all TAG trees
+    :rype: TAGTreeSet
     """
-    #install()
     cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
     
     cata = get_catalog(cata_str)
-    #start = time.time()
-    """
-    sfs = get_start_feature(cata)
-    t = parse_from_files(cata, 'tree-files')
-    t += parse_from_files(cata, 'family-files')
-    t.set_start_fs(sfs)
-    dump_to_disk('tagtreeset.pickle', t)
-    """
 
     treefile = nltk.data.find('xtag_grammar/pickles/tagtreeset.pickle').open()
     treeset = restore_from_disk(treefile)
@@ -127,74 +117,7 @@ def load():
     mapping_str = nltk.data.find(mapping_path).open().read()
 
     init(morph_str, syn_str, temp_str, default_str, mapping_str)
-    return treeset
-
-#    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
-#    treetok = graph_parse(treetok)
-#    graph = DependencyGraphView(treetok, t)
-#    graph.mainloop()  
-
-def debug():
-    cata = get_catalog('../xtag-english-grammar/english.gram')
-    sfs = get_start_feature(cata)
-    t = parse_from_files(cata, 'tree-files')
-    t += parse_from_files(cata, 'family-files')
-    t.set_start_fs(sfs)
-    morph = get_file_list(cata, 'morphology-files')
-    syn = get_file_list(cata, 'lexicon-files')
-    temp = get_file_list(cata, 'templates-files')
-    default = get_file_list(cata, 'syntax-default')
-    morph_path = morph[1]+morph[0][0]
-    syn_path = syn[1]+syn[0][0]
-    temp_path = temp[1]+temp[0][0]
-    default_path = default[1]+default[0][0]
-    init(morph_path, syn_path, temp_path, default_path)
-    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
-    treetok = graph_parse(treetok)
-    graph = DependencyGraphView(treetok, t)
-    graph.mainloop()    
-
-def graph_parse(graph):
-    if isinstance(graph, basestring):
-        node_name = graph
-        return Tree(node_name, [])
-    else:
-        node_name = graph.node
-        subtree = []
-        for i in range(0, len(graph)):
-            subtree.append(graph_parse(graph[i]))
-        return Tree(node_name, subtree)
-
-
-def _tree_to_graphseg(canvas, t, make_node, make_leaf,
-                     tree_attribs, node_attribs,
-                     leaf_attribs, loc_attribs):
-    if isinstance(t, Tree):
-        node = make_node(canvas, t.node, **node_attribs)
-        subtrees = [_tree_to_graphseg(canvas, child, make_node, make_leaf,
-                                     tree_attribs, node_attribs,
-                                     leaf_attribs, loc_attribs)
-                    for child in t]
-        return GraphSegmentWidget(canvas, node, subtrees, **tree_attribs)
-    else:
-        return make_leaf(canvas, t, **leaf_attribs)
-
-def tree_to_graphsegment(canvas, t, make_node=TextWidget,
-                        make_leaf=TextWidget, **attribs):
-    tree_attribs = {}
-    node_attribs = {}
-    leaf_attribs = {}
-    loc_attribs = {}
-
-    for (key, value) in attribs.items():
-        if key[:5] == 'tree_': tree_attribs[key[5:]] = value
-        elif key[:5] == 'node_': node_attribs[key[5:]] = value
-        elif key[:5] == 'leaf_': leaf_attribs[key[5:]] = value
-        elif key[:4] == 'loc_': loc_attribs[key[4:]] = value
-        else: raise ValueError('Bad attribute: %s' % key)
-    return _tree_to_graphseg(canvas, t, make_node, make_leaf,
-                                tree_attribs, node_attribs,
-                                leaf_attribs, loc_attribs)
+    return treeset   
 
 class TreeMerge(object):
     def __init__(self, tree_set, parent):
@@ -263,9 +186,6 @@ class TreeMerge(object):
     def tree(self):
         return self.trees
 
-
-
-
 class GraphSegmentWidget(TreeSegmentWidget):
     def __init__(self, canvas, node, subtrees, tree, parent, merge, **attribs):
         TreeSegmentWidget.__init__(self, canvas, node, 
@@ -278,12 +198,6 @@ class GraphSegmentWidget(TreeSegmentWidget):
         self._press = 0
         self._tree = tree
         self._anc = parent
-        #self.__hidden = 0
-
-        # Update control (prevents infinite loops)
-        #self.__updating = 0
-
-        # Button-press and drag callback handling.
         self.__press = None
         self.__drag_x = self.__drag_y = 0
         self.__callbacks = {}
@@ -844,8 +758,11 @@ class TAGTreeWidget(TreeWidget):
                 top_fs = self._all_fs[top_name]
             if bot_name in self._all_fs:
                 bot_fs = self._all_fs[bot_name]
-            treeseg = TAGTreeSegmentWidget(canvas, node, subtrees, 
-                                        top_fs, bot_fs,
+            #treeseg = TAGTreeSegmentWidget(canvas, node, subtrees, 
+            #                            top_fs, bot_fs,
+            #                            color=self._line_color,
+            #                            width=self._line_width)
+            treeseg = TreeSegmentWidget(canvas, node, subtrees, 
                                         color=self._line_color,
                                         width=self._line_width)
             self._expanded_trees[key] = treeseg
@@ -875,11 +792,8 @@ class TAGTreeWidget(TreeWidget):
     #def toggle_collapsed(self, treeseg):        
     #    self.show_fs(treeseg)
 
+    """
     def show_fs(self, treeseg):
-        """
-        Open a new window and display the top and bottom feature
-        structure for the treesegment.
-        """
         def fill(cw):
             from random import randint
             cw['fill'] = '#00%04d' % randint(0,9999)
@@ -899,6 +813,7 @@ class TAGTreeWidget(TreeWidget):
 
         cf = CanvasFrame(self._fsw, closeenough=10, width=400, height=300)
         c = cf.canvas()
+        print treeseg._node
         top_fs = fs_widget(treeseg.top_fs(), self._all_fs, c, _fs_name(node_name, True))
         bot_fs = fs_widget(treeseg.bot_fs(), self._all_fs, c, _fs_name(node_name, False))
         top_text = TextWidget(c, top_str, justify='center')
@@ -910,6 +825,7 @@ class TAGTreeWidget(TreeWidget):
 
 #    def set_parent_window(self, parent):
 #        self._top = parent
+    """
 
 class TAGTreeView(TreeView):
     """
@@ -2063,6 +1979,19 @@ def _all_widget(feats, reentrances, reentrance_ids, c, name):
         widgets.append(sw)
     return SequenceWidget(c, *widgets, align='center')
 
+def remove_or_tag(feat):
+    keys = feat.keys()
+    for key in keys:
+        #print key
+        if key[:5] == '__or_':
+            value = feat[key]
+            feat['__value__'] = value
+        elif key == '__value__':
+            kvalue = feat[key]
+        #    print kvalue
+        else:
+            remove_or_tag(feat[key])
+
 def _fs_widget(feats, c, name, **attribs):
     old_name = []
     for fname in feats:
@@ -2073,6 +2002,8 @@ def _fs_widget(feats, c, name, **attribs):
             old_name.append(fname)
     for name in old_name:
         del feats[name]
+
+    remove_or_tag(feats)
 
     fstr = feats.__repr__()
     fstr = fstr.replace('__value__=','')
@@ -2270,3 +2201,68 @@ if __name__ == '__main__':
     #demo()
     #load()
     install()
+
+
+"""
+def debug():
+    cata = get_catalog('../xtag-english-grammar/english.gram')
+    sfs = get_start_feature(cata)
+    t = parse_from_files(cata, 'tree-files')
+    t += parse_from_files(cata, 'family-files')
+    t.set_start_fs(sfs)
+    morph = get_file_list(cata, 'morphology-files')
+    syn = get_file_list(cata, 'lexicon-files')
+    temp = get_file_list(cata, 'templates-files')
+    default = get_file_list(cata, 'syntax-default')
+    morph_path = morph[1]+morph[0][0]
+    syn_path = syn[1]+syn[0][0]
+    temp_path = temp[1]+temp[0][0]
+    default_path = default[1]+default[0][0]
+    init(morph_path, syn_path, temp_path, default_path)
+    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
+    treetok = graph_parse(treetok)
+    graph = DependencyGraphView(treetok, t)
+    graph.mainloop() 
+
+def graph_parse(graph):
+    if isinstance(graph, basestring):
+        node_name = graph
+        return Tree(node_name, [])
+    else:
+        node_name = graph.node
+        subtree = []
+        for i in range(0, len(graph)):
+            subtree.append(graph_parse(graph[i]))
+        return Tree(node_name, subtree)
+
+
+def _tree_to_graphseg(canvas, t, make_node, make_leaf,
+                     tree_attribs, node_attribs,
+                     leaf_attribs, loc_attribs):
+    if isinstance(t, Tree):
+        node = make_node(canvas, t.node, **node_attribs)
+        subtrees = [_tree_to_graphseg(canvas, child, make_node, make_leaf,
+                                     tree_attribs, node_attribs,
+                                     leaf_attribs, loc_attribs)
+                    for child in t]
+        return GraphSegmentWidget(canvas, node, subtrees, **tree_attribs)
+    else:
+        return make_leaf(canvas, t, **leaf_attribs)
+
+def tree_to_graphsegment(canvas, t, make_node=TextWidget,
+                        make_leaf=TextWidget, **attribs):
+    tree_attribs = {}
+    node_attribs = {}
+    leaf_attribs = {}
+    loc_attribs = {}
+
+    for (key, value) in attribs.items():
+        if key[:5] == 'tree_': tree_attribs[key[5:]] = value
+        elif key[:5] == 'node_': node_attribs[key[5:]] = value
+        elif key[:5] == 'leaf_': leaf_attribs[key[5:]] = value
+        elif key[:4] == 'loc_': loc_attribs[key[4:]] = value
+        else: raise ValueError('Bad attribute: %s' % key)
+    return _tree_to_graphseg(canvas, t, make_node, make_leaf,
+                                tree_attribs, node_attribs,
+                                leaf_attribs, loc_attribs)
+"""
