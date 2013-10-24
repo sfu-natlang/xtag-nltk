@@ -1046,10 +1046,12 @@ dicts = None
 inited = False
 
 def check_pos_equality(morph_pos,syntax_pos):
-    if dicts[4].has_key(syntax_pos):
+    if morph_pos == syntax_pos:  # Check literal equality first
+        return True
+    elif dicts[4].has_key(syntax_pos): # Then check mapping equality
         return dicts[4][syntax_pos] == morph_pos
-    else:
-        return morph_pos == syntax_pos
+    else:  # Else not equal
+        return False
     
 
 def check_init():
@@ -1061,6 +1063,16 @@ def check_init():
     if inited == False:
         raise KeyError("Initial file name not provided. Please run init() first.")
     return
+
+def get_morph_from_syntax(syn_entry,word):
+    m = []
+    for i in syn_entry:
+        for j in i[0]:
+            if j[0] == word:
+                if not (word,j[1],[]) in m:
+                    m.append((word,j[1],[]))
+    return m
+    
 
 def word_to_morph(word):
     """
@@ -1084,6 +1096,9 @@ def word_to_morph(word):
     if dicts[0].has_key(word):
         morph = dicts[0][word]
         ret = (True,morph)
+    elif dicts[1].has_key(word):
+        morph = get_morph_from_syntax(dicts[1][word],word)
+        ret = (True,morph)
     else:
         morph = dicts[0]['%s']
         ret = (False,morph)
@@ -1099,9 +1114,9 @@ def get_syntax_entry(morph_entry_zero):
     whether we should compare the morph.
     """
     if dicts[1].has_key(morph_entry_zero):
-        (return dicts[1][morph_entry_zero],False)
+        return (dicts[1][morph_entry_zero],False)
     else:
-        (return dicts[1]['%s'],True)
+        return (dicts[1]['%s'],True)
 
 def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
     """
@@ -1161,7 +1176,7 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
             for mf in morph_entry[2]:
                 morph_feature.append(dicts[2][0][mf])
 
-            if word_exist == False:
+            if word_exist == False or accept_morph_aux == True:
                 entry_pos_list = [(word,i[0][0][1])] # The list has only one entry
             else:
                 entry_pos_list = i[0]
