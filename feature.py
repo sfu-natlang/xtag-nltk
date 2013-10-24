@@ -44,6 +44,12 @@ def test_leaf(fs):
     """
     is_leaf = False
     keys = fs.keys()
+    
+    if len(keys) == 0: # For empty features we regard it as leaf
+        return True
+    elif keys[0][0:9] == '__value__':  # Just a hack to make backward compatibility
+        return True                    # Used in match_feature
+
     for i in keys:
         if i[0:5] != '__or_':
             break
@@ -412,6 +418,69 @@ def parse_feature_in_catalog(s):
         add_new_fs(new_fs,token[0].split(),token[1])
 
     return new_fs
+
+###################################################
+# Regular Expressions for Feature Structure #######
+###################################################
+
+# This function acceps a normalized feature structure (which uses __value__
+# as the last level of indexing) and a regular expression, and returns
+# a new feature structure that match the regexp or do not match.
+def match_feature(feature,regexp,operation=0):
+    """
+    match_feature(feature,regexp,operation=0) -> FeatStruct
+
+    This function is used to filter a feature structure with a regular exression.
+    The regular expression should be written in the form that XTAG system uses,
+    which has a '__value__' entry at the last level of indexing.
+
+    feature: The feature that you would like to filter
+
+    regexp: An acceptable regular expression by module re
+
+    operation: 0 if positive filtering will be done, 1 if negative filtering.
+    positive filtering means that all RHS values that match the regexp will be
+    retained, while negative filtering means that all RHS values that doesn't
+    match will be retained.
+    """
+    new_feature = FeatStruct()
+    count = 0
+    for i in feature.keys():
+        val = feature[i]
+        if test_leaf(val) == True:
+            search_ret = re.search(regexp,i)
+            if operation == 0 and search_ret != None:
+                new_feature[i] = val
+                count += 1
+            elif operation == 1 and search_ret == None:
+                new_feature[i] = val
+                count += 1
+        else:
+            search_ret = re.search(regexp,i)
+            if operation == 0 and search_ret != None:
+                new_feature[i] = val
+                count += 1
+            elif operation == 1 and search_ret == None:
+                ret = match_feature(val,regexp,operation)
+                if ret != None:
+                    new_feature[i] = ret
+                else:
+                    new_feature[i] = FeatStruct()
+                count += 1
+            elif operation == 1 and search_ret != None:
+                pass
+            else:
+                ret = match_feature(val,regexp,operation)
+                #print ret,'\n'
+                if ret != None:
+                    new_feature[i] = ret
+                    count += 1
+
+    #print new_feature,'\n'
+    if count == 0:
+        return None
+    else:
+        return new_feature
 
 #########################################################
 # Feature Structure Function For Future Use #############
