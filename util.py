@@ -1981,11 +1981,21 @@ def _all_widget(feats, reentrances, reentrance_ids, c, name):
 
 def remove_or_tag(feat):
     keys = feat.keys()
+    length = len(keys)
     for key in keys:
-        #print key
-        if key[:5] == '__or_':
+        if key[:5] == '__or_' and length > 1:
+            values = feat.values()
+            value = ''
+            for v in values:
+                value = value + v + '/'
+            feat['__value__'] = value[:-1]
+            for key in keys:
+                del feat[key]
+            return
+        elif key[:5] == '__or_':
             value = feat[key]
             feat['__value__'] = value
+            del feat[key]
         elif key == '__value__':
             kvalue = feat[key]
         #    print kvalue
