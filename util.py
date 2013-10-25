@@ -1755,9 +1755,9 @@ class TAGTree(Tree):
                                             all_fs[m_node][m_attr]['__or_'] = ''
                                         #del feat[first_key]
                                         f[k] = all_fs[m_node][m_attr]
-                                        print id(feat), m_node, m_attr
-                                        print id(all_fs['D.t']['agr'])
-                                        print id(all_fs['NP_r.b']['agr'])
+                                        #print id(feat), m_node, m_attr
+                                        #print id(all_fs['D.t']['agr'])
+                                        #print id(all_fs['NP_r.b']['agr'])
                                     else:
                                         continue
                                 else:
