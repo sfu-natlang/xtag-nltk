@@ -845,8 +845,6 @@ class TAGTreeView(TreeView):
         self._cframe = CanvasFrame(self._top)
         self._widgets = []
         self.redraw(True, trees)
-        if trees:
-            print trees.get_all_fs()
 
     def clear(self):
         """
@@ -1731,12 +1729,66 @@ class TAGTree(Tree):
                     lex = TAGTree(m[0], [], 'lex')
                     head.set_children(lex)
                     all_fs = self.get_all_fs()
+                    #print all_fs
+                    #print "FS", fs
                     for f in fs:
                         #all_fs = all_fs.unify(f)
-                        temp = all_fs.unify(f)
-                        if temp:
-                            all_fs = temp
+                        stack = []
+
+                        print f
+                        for node in f:
+                            for attr in f[node]:
+                                all_fs[node][attr] = f[node][attr]
+                            keys = f[node].keys()
+                            stack = [(f[node], key) for key in keys]
+                            while len(stack) > 0:
+                                f, k = stack.pop()
+                                feat = f[k]
+                                print feat
+                                first_key = feat.keys()[0]
+                                if first_key[:5] == '__or_':
+                                    mapping = feat[first_key].split(':')
+                                    if len(mapping) == 2:
+                                        m_node = mapping[0]
+                                        m_attr = mapping[1][1:-1]
+                                        if not m_attr in all_fs[m_node]:
+                                            all_fs[m_node][m_attr]['__or_'] = ''
+                                        #del feat[first_key]
+                                        f[k] = all_fs[m_node][m_attr]
+                                        print id(feat), m_node, m_attr
+                                        print id(all_fs['D.t']['agr'])
+                                        print id(all_fs['NP_r.b']['agr'])
+                                    else:
+                                        continue
+                                else:
+                                    items = [(feat, key) for key in feat.keys()]
+                                    stack += items
+                            
+                        
+                        #print all_fs
+                        #node = f.keys()[0]
+                        #attr = f[node].keys()[0]
+                        #if attr in all_fs[node]:
+                        
+                        #else:
+
+                        #unified = all_fs.unify(f)
+                        """
+                        if unified:
+                            print 'unified'
+                            #print f
+                            node = f.keys()[0]
+                            attr = f[node].keys()[0]
+                            print f
+                            print all_fs
+                            print node, attr
+                            if '__or_' in all_fs[node][attr]:
+                                print 111
+                            #print f.keys()
+                            all_fs = unified
+                            #print all_fs
                         else:
+                            print 'not unified'
                             keys = f.keys()[0]
                             key = f[keys]
                             for i in all_fs:
@@ -1746,6 +1798,8 @@ class TAGTree(Tree):
                                         result = []
                                         child = all_fs.items()
                                         self._find_value(all_fs, id(temp[j]), f[keys][j])
+                        """
+                    #print all_fs
                     self.set_all_fs(all_fs)
 
     def unify(self, fs):
@@ -1984,7 +2038,9 @@ def remove_or_tag(feat):
         if key[:5] == '__or_' and length > 1:
             values = feat.values()
             value = ''
+            print keys, feat.values()
             for v in values:
+                print type(value), value, type(v), v
                 value = value + v + '/'
             feat['__value__'] = value[:-1]
             for key in keys:
@@ -2074,7 +2130,6 @@ def _fs_widget(feats, c, name, **attribs):
     return BracketWidget(c, widget, color='black', width=1)
 
 def _parse_to_widget(fstr, c, highlight=False):
-    print fstr
     if fstr[:4] == '<h>,':
         fstr = fstr[4:]
     if fstr[-4:] == ']<h>':
@@ -2162,6 +2217,7 @@ def fs_widget(fs, allfs, canvas, name, **attribs):
     param: attribs, the attribs of the widget
     """
     if fs:
+        #print allfs
         return _fs_widget(allfs, canvas, name, **attribs)
     else:
         return TextWidget(canvas, '[ ]', justify='center')
