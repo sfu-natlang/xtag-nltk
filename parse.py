@@ -8,7 +8,6 @@
 #
 
 from nltk.parse.projectivedependencyparser import *
-#from nltk.parse.nonprojectivedependencyparser import *
 from nltk.classify.naivebayes import *
 from nltk.tokenize import word_tokenize
 from nltk import pos_tag
@@ -292,7 +291,8 @@ def check_name_equality(name_1,name_2):
     else:
         return False
 
-def check_substitution(tree_1,tree_2,anchor_pos):
+
+def check_substitution(tree_1,tree_2,anchor_pos,feature_enabled=False):
     """
     Check whether one tree can be combined with another tree using substitution.
     And tree_2 must be under tree_1 in the substitution.
@@ -335,15 +335,18 @@ def check_substitution(tree_1,tree_2,anchor_pos):
                 new_tree_1 = deepcopy(tree_1)
                 new_tree_2 = deepcopy(tree_2)
                 new_sub_node = new_tree_1.search(i.get_node_name())
-                # When doing substitution we need to unify the top features, and check whether it is null
-                new_top_feature = new_sub_node.get_top_feature().unify(new_tree_2.get_top_feature())
-                # Cannot unify
-                if new_top_feature == None:
-                    print "unify_failed" # For debugging
-                    continue
-                new_sub_node.set_top_feature(new_top_feature)
-                # Bottom feature is just a copy
-                new_sub_node.set_bottom_feature(new_tree_2.get_bottom_feature())
+
+                if feature_enbaled == True:
+                    # When doing substitution we need to unify the top features, and check whether it is null
+                    new_top_feature = new_sub_node.get_top_feature().unify(new_tree_2.get_top_feature())
+                    # Cannot unify
+                    if new_top_feature == None:
+                        print "unify_failed" # For debugging
+                        continue
+                    new_sub_node.set_top_feature(new_top_feature)
+                    # Bottom feature is just a copy
+                    new_sub_node.set_bottom_feature(new_tree_2.get_bottom_feature())
+
                 # Append all child nodes of tree_2 to the substitution node
                 for j in tree_2.get_child_node():
                     new_sub_node.append_new_child(j)
@@ -353,7 +356,7 @@ def check_substitution(tree_1,tree_2,anchor_pos):
                 
     return result
 
-def check_adjunction(tree_1,tree_2):
+def check_adjunction(tree_1,tree_2,feature_enabled=False):
     """
     To check adjunction using tree_2 to tree_1, i.e. tree_2 is the auxiliary tree
     
@@ -399,18 +402,20 @@ def check_adjunction(tree_1,tree_2):
         # Then attach tree_2 in the whole to the adj_node
         for j in new_tree_2.get_child_node():
             adj_node.append_new_child(j)
+            
+        if feature_enabled == True:
+            # Next we will change the feature structure
+            # The detail is recorded in the technical report
+            t = adj_node.get_top_feature()
+            b = adj_node.get_bottom_feature()
+            tr = new_tree_2.get_top_feature()
+            br = new_tree_2.get_bottom_feature()
+            tf = new_foot.get_top_feature()
+            bf = new_foot.get_bottom_feature()
+            adj_node.set_top_feature(t.unify(tr))
+            adj_node.set_bottom_feature(br)
+            new_foot.set_bottom_feature(b.unify(bf))
 
-        # Next we will change the feature structure
-        # The detail is recorded in the technical report
-        t = adj_node.get_top_feature()
-        b = adj_node.get_bottom_feature()
-        tr = new_tree_2.get_top_feature()
-        br = new_tree_2.get_bottom_feature()
-        tf = new_foot.get_top_feature()
-        bf = new_foot.get_bottom_feature()
-        adj_node.set_top_feature(t.unify(tr))
-        adj_node.set_bottom_feature(br)
-        new_foot.set_bottom_feature(b.unify(bf))
         # Don't forget to let the foot node become a normal node
         new_foot.cancel_adjunction()
         # Add this new tree into the list
@@ -481,7 +486,7 @@ def enforce_word_order(tree_list,word_list):
     return ret
         
         
-def tree_compatible(tree_1,tree_2,word_list=None,operation='AS'):
+def tree_compatible(tree_1,tree_2,word_list=None,feature_enabled=False,operation='AS'):
     """
     To combine two trees together using substitution or adjunction.
 
@@ -494,6 +499,9 @@ def tree_compatible(tree_1,tree_2,word_list=None,operation='AS'):
     :param word_list: A list of words to enforce word order in the resulting trees
     :type word_list: list(str)
 
+    :param feature_enabled: Whether to include feature structure during the combination of trees
+    :type feature_enabled: bool
+    
     :return: The result of substitution and adjunction
     :rtype: tuple(list,list,list,list)
 
@@ -534,16 +542,16 @@ def tree_compatible(tree_1,tree_2,word_list=None,operation='AS'):
     # of tree_2, whild trying all possible combinations
     # To control if we need to do substitution
     if 'A' in operation:
-        sub_1 = check_substitution(tree_1,tree_2,False)
-        sub_2 = check_substitution(tree_2,tree_1,True)
+        sub_1 = check_substitution(tree_1,tree_2,False,feature_enabled)
+        sub_2 = check_substitution(tree_2,tree_1,True,feature_enabled)
     else:
         sub_1 = []
         sub_2 = []
     # Adjunction does not guarantee the order so we have an additional step
     # To control if we need to do adjunction
     if 'S' in operation:
-        adj_1 = check_adjunction(tree_1,tree_2)
-        adj_2 = check_adjunction(tree_2,tree_1)
+        adj_1 = check_adjunction(tree_1,tree_2,feature_enabled)
+        adj_2 = check_adjunction(tree_2,tree_1,feature_enabled)
     else:
         adj_1 = []
         adj_2 = []
