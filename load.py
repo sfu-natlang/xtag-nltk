@@ -411,6 +411,7 @@ def print_tree(node,table=0):
 def get_catalog(content):
     """
     Given a string of english.gram it will return the parsing tree
+    
     :param content: The content of english.gram file
     :type content: str
     :return: The root of the parsing tree
@@ -441,6 +442,7 @@ def get_file_tree(node,type_string):
     """
     Given the file type this fuinction will return a subtree which is of the
     given file type.
+    
     :param node: The tree root or a subtree.
     :type node: The tree node
     :param type_string: The file type you want
