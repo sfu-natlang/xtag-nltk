@@ -18,6 +18,18 @@ from nltk.featstruct import *
 # Do not call these functions from the outside! Only be used by the parser
 
 def get_next_token(s,index,length=None):
+    """
+    To get the next token in english.gram. It is part of the LL parser.
+    :param s: The source string
+    :type s: str
+    :param index: Current reading position.
+    :type index: integer
+    :param length: The length of s. Can be None. Just make it faster.
+    :type length: integer
+
+    :return: The token and current reading position
+    :rtype: tuple(str,integer)
+    """
     # This function is used by the LL parser to extract out tokens from the input
     # stream, which is not a general one, but is designed and simplified just
     # for use in the XTAG case. DO NOT USE IT AS A PUBLIC FUNCTION.
@@ -86,9 +98,20 @@ def get_next_token(s,index,length=None):
         else:
             index += 1
 
-catalog_name = {}
+catalog_name = {} # Global names defined by a "setf" statement
 
 def add_new_name(s,index):
+    """
+    Extract a token from the string as a name, and add the name into the table.
+    If there is a name clash then just raise an error
+    
+    :param s: The source string
+    :type s: str
+    :param index: Current reading position
+    :type index: integer
+    :return: The token and current reading position.
+    :rtype: tuple(str,integer)
+    """
     # This function will add a global name, i.e. those defined after 'setf'
     # into a global dictionary, called catalog_name, and will be retrieved by
     # generate_string later.
@@ -106,7 +129,17 @@ def add_new_name(s,index):
     return (token_2[0][1:-1],index)
 
 def generate_string(s,index):
-    # This function will generate a string using the defined ifentifier name
+    """
+    Only "concatenate 'string" method is supported.
+
+    :param s: Same as in get_next_token()
+    :type s: Same as in get_next_token()
+    :param index: Same as in get_next_token()
+    :type index: Same as in get_next_token()
+    :return: Evaluated string
+    :rtype: Same as in get_next_token()
+    """
+    # This function will generate a string using the defined identifier name
     # i.e. catalog_name. This will be called if a "concatenate 'string" is encountered.
     global catalog_name
     token = get_next_token(s,index)
@@ -127,9 +160,18 @@ def generate_string(s,index):
         raise TypeError("generate_string: Don't support concatenate except \"'string\"")
 
 def evaluate_expression(s,index):
+    """
+    Evaluate "setf" and "concatenate" expressions and get a string
+    :param s: Same as in get_next_token()
+    :type s: Same as in get_next_token()
+    :param index: Same as in get_next_token()
+    :type index: Same as in get_next_token()
+    :return: Evaluated string
+    :rtype: Same as in get_next_token()
+    """
     # This function will evaluate those "expressions" defined by 'setf' or
     # 'concatenate', and dispatch them to the corresponding functions
-    # No other expression typeare supported for now
+    # No other expression type are supported for now
     token = get_next_token(s,index)
     if token[0] != '(':
         raise TypeError("evaluate_expression: '(' expected.")
@@ -152,6 +194,17 @@ def evaluate_expression(s,index):
         return (ret[0],index)
 
 def parse_expression(s,index):
+    """
+    Get a expression strated with "setf" and "concatenate"
+
+    :param s: Same as in get_next_token()
+    :type s: Same as in get_next_token()
+    :param index: Same as in get_next_token()
+    :type index: Same as in get_next_token()
+
+    :return: A node in the parse tree together with the current reading position.
+    :rtype: tuple(tuple(str,list(str)),integer)
+    """
     # This function is used to parse an expression. i.e. those strings identified
     # by '"' at the start and the end, and also other types, such as 'setf'
     # and 'concatenate'.
@@ -174,6 +227,16 @@ def parse_expression(s,index):
             return [("expr",values),index]
 
 def parse_option(s,index):
+    """
+    An option started with ":"
+    :param s: Same as in get_next_token()
+    :type s: Same as in get_next_token()
+    :param index: Same as in get_next_token()
+    :type index: Same as in get_next_token()
+
+    :return: A parsing tree node
+    :rtype: tuple
+    """
     # This function will parse an option and return the tree, each node of which
     # is actually a option entry of that option. An option is defined as being strated
     # by a ':' symbol, the format of which is :[option name] [option value]
@@ -190,6 +253,16 @@ def parse_option(s,index):
     return [("optn",option_name,exp[0]),index]
 
 def parse_option_set(s,index):
+    """
+    Parse an option set starting with (: and end with )
+    :param s: Same as in get_next_token()
+    :type s: Same as in get_next_token()
+    :param index: Same as in get_next_token()
+    :type index: Same as in get_next_token()
+
+    :return: A parsing tree node
+    :rtype: list
+    """
     # This function is used to parse an option set, which starts with a "(:"
     # and ends with a ")". There can be option entries or even another option
     # in an option, so that it is defined as naturally nested. Also we must
@@ -222,6 +295,16 @@ def parse_option_set(s,index):
     return [("opts",options),index]
 
 def parse_language(s,index):
+    """
+    Parse a language in the english.gram file
+    :param s: Same as in get_next_token()
+    :type s: Same as in get_next_token()
+    :param index: Same as in get_next_token()
+    :type index: Same as in get_next_token()
+
+    :return: A parsing tree node
+    :rtype: list
+    """
     # This function is called to parse a language in the .grammar file, which
     # starts with "(defgrammar [language name]" and ends with ")". There can
     # be only options in the language. And the parse supports more than one
@@ -255,6 +338,16 @@ def parse_language(s,index):
         return [("lang",language_name,option_set),token[1]]
     
 def parse_catalog(s,index):
+    """
+    Prase the whole english.gram file
+    :param s: Same as in get_next_token()
+    :type s: Same as in get_next_token()
+    :param index: Same as in get_next_token()
+    :type index: Same as in get_next_token()
+
+    :return: A parsing tree root
+    :rtype: tuple
+    """
     # This function parses the catalog repersented in a string. The return value
     # is a node of the tree whose content is just the options and other
     # elements of the catalog string. The formats are presented below:
@@ -285,6 +378,14 @@ def parse_catalog(s,index):
     return ("top",top)
 
 def print_tree(node,table=0):
+    """
+    Recursively print out a parsing tree
+
+    :param node: The tree root for a parsing tree.
+    :type node: tuple (returned by the parsing algorithm)
+    :param table: Recursion parameter, the number of indents for the current line
+    :type table: integer
+    """
     # This function is used to print a parse tree in a pre-order manner
     # node should be the root or any sub-tree, and table should not be used
     if node[0] == "top":
@@ -308,6 +409,13 @@ def print_tree(node,table=0):
     return
 
 def get_catalog(content):
+    """
+    Given a string of english.gram it will return the parsing tree
+    :param content: The content of english.gram file
+    :type content: str
+    :return: The root of the parsing tree
+    :rtype: The valued returned by the parsing algorithm
+    """
     # Given the string, this function is used to get the parse tree from
     # that file. Only call that once, and the parse tree can be used multiple
     # times to get options.
@@ -326,14 +434,22 @@ def get_catalog(content):
 file_list = None
 suffix = None
 path = None
+opt_value = None
+################
 
 def get_file_tree(node,type_string):
+    """
+    Given the file type this fuinction will return a subtree which is of the
+    given file type.
+    :param node: The tree root or a subtree.
+    :type node: The tree node
+    :param type_string: The file type you want
+    :type type_string: str
+    """
     # DON'T DIRECTLY CALL THIS
     # Given the root node of the parsing tree, and the file type that you want
     # to extract, this function will return the tree containing the list
     # of the files of that type.
-    # Legal file type:
-    # 
     global file_list,suffix,path
     ret = None
     if node[0] == "top":
@@ -361,9 +477,18 @@ def get_file_tree(node,type_string):
     return ret
 
 def get_file_list(node,type_string):
+    """
+    This function is called to get the file list of a certain type.
+    
+    :param node: The parsing tree node
+    :type node: Tree node returned by the parsing algorithm
+    :param type_string: The type of files you want to get
+    :type type_string: str
+    """
     # Given the root node of the parse tree, and the file type
     # you want to get, this function will return a list containing
     # the file names as well as the absolute path of the files.
+    # PLEASE CALL THIS ONE
     global file_list,suffix,path
     get_file_tree(node,type_string)
     file_list_full = []
@@ -375,7 +500,6 @@ def get_file_list(node,type_string):
         file_list_full.append(i + '.' + suffix_str)
     return (file_list_full,path[:]) # We must copy the path string
 
-opt_value = None
 
 def get_option_value(node,opt_name):
     """
