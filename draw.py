@@ -173,7 +173,6 @@ class LexView(object):
         self._tagset = TAGTreeSet()
         self._treeview.clear()
         for word in words:
-            print word
             self._tagset[word] = TAGTreeSet()
             fset = self._tagset[word]
             lex_list = word_to_features(word)
