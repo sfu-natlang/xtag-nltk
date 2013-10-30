@@ -1722,6 +1722,7 @@ class TAGTree(Tree):
         """
         morph = self._morph
         fs = self._lex_fs
+        print fs
         heads = self.get_head()
         for head in heads:
             for m in morph:
@@ -1735,16 +1736,29 @@ class TAGTree(Tree):
                         #all_fs = all_fs.unify(f)
                         stack = []
 
-                        print f
+                        #print f
                         for node in f:
                             for attr in f[node]:
                                 all_fs[node][attr] = f[node][attr]
+                        for node in f:
                             keys = f[node].keys()
-                            stack = [(f[node], key) for key in keys]
+                            stack = []
+                            for key in keys:
+                                stack.append([f[node], key])
+                            print stack
+                            #stack = [[f[node], key] for key in keys]
                             while len(stack) > 0:
-                                f, k = stack.pop()
-                                feat = f[k]
+                                path = stack.pop()
+                                print stack
+                                feat = path[0]
+                                for e in range(1, len(path)):
+                                    feat = feat[path[e]]
+                                #feat = f[k]
                                 print feat
+                                #print
+                                #print 
+                                #print
+                                #print all_fs
                                 first_key = feat.keys()[0]
                                 if first_key[:5] == '__or_':
                                     mapping = feat[first_key].split(':')
@@ -1754,15 +1768,38 @@ class TAGTree(Tree):
                                         if not m_attr in all_fs[m_node]:
                                             all_fs[m_node][m_attr]['__or_'] = ''
                                         #del feat[first_key]
-                                        f[k] = all_fs[m_node][m_attr]
+                                        #del f[k]
+                                        m_key = all_fs[m_node][m_attr].keys()[0]
+                                        #m_value = all_fs[m_node][m_attr][m_key]
+                                        #f.clear()
+                                        #del f[k]
+                                        #f['aerfea'] = all_fs[m_node][m_attr]
+                                        c_feat = all_fs[node]
+                                        for e in range(1, len(path)-1):
+                                            c_feat = c_feat[path[e]]
+                                        c_feat[path[-1]] = all_fs[m_node][m_attr]
+                                        #print c_feat
+                                        #all_fs[node][path[1]] = all_fs[m_node][m_attr]
+                                        #print f[k]
+                                        #print all_fs
+                                        #print id(f[k])
                                         #print id(feat), m_node, m_attr
+                                        #print all_fs[m_node][m_attr]
                                         #print id(all_fs['D.t']['agr'])
                                         #print id(all_fs['NP_r.b']['agr'])
                                     else:
                                         continue
                                 else:
-                                    items = [(feat, key) for key in feat.keys()]
-                                    stack += items
+                                    print path
+                                    feat_list = []
+                                    for key in feat:
+                                        items = copy.copy(path)
+                                        items.append(key)
+                                        feat_list.append(items)
+                                        print key
+                                        print feat_list
+                                    #items = [pathappend(key) for key in feat.keys()]
+                                    stack += feat_list
                             
                         
                         #print all_fs
@@ -1799,6 +1836,7 @@ class TAGTree(Tree):
                                         child = all_fs.items()
                                         self._find_value(all_fs, id(temp[j]), f[keys][j])
                         """
+                    #print all_fs
                     #print all_fs
                     self.set_all_fs(all_fs)
 
@@ -2056,7 +2094,8 @@ def remove_or_tag(feat):
         else:
             remove_or_tag(feat[key])
 
-def _fs_widget(feats, c, name, **attribs):
+def _fs_widget(f, c, name, **attribs):
+    feats = copy.deepcopy(f)
     old_name = []
     for fname in feats:
         if ord(fname[0]) > 206:
