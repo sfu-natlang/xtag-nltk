@@ -174,15 +174,19 @@ class TreeMerge(object):
                 return
 
             if self.root(self.merge) != self.root(tree):
-                if len(parent._tree) == 0:
-                    parent._tree.append(head._tree)
-                else:
-                    parent._tree.append(head._tree)
+                #if len(parent._tree) == 0:
+                #    parent._tree.append(head._tree)
+                #else:
+                print type(parent._tree)
+                print head._tree
+                pid = id(parent._tree)
+                hid = id(head._tree)
+                parent._tree.append(head._tree)
                 if head._tree in self.trees:
                     self.trees.remove(head._tree)
                 self.merge.reset()
                 self.merge = None
-                self._parent.redraw()
+                self._parent.redraw(pid, hid)
             else:
                 self.merge.reset()
                 #tree.reset()
@@ -348,6 +352,8 @@ class GraphElementWidget(BoxWidget):
         self.bind_click(self.click)
         self._canvas = canvas
         self.viewer = parent
+        if not self in self.viewer.elements:
+            self.viewer.elements.append(self)
         #self._canvas.tag_bind(self._tags(), '<Double-Button-1>', self.double_click)
 
     def color(self):
@@ -370,10 +376,12 @@ class GraphElementWidget(BoxWidget):
             self._select = 2
             #self.parent()._anc.rollback(self)
             self['fill'] = 'red'
+            self.viewer.node_selected = None
         elif self._select == 2:
             node['fill'] = 'green'
             self._select = 0
             self._merge.merge = None
+            self.viewer.node_selected = None
         else:
             node['fill'] = 'yellow'
             if self._merge.current != None:
@@ -381,6 +389,9 @@ class GraphElementWidget(BoxWidget):
             self._merge.current = self
             self._select = 1
             self.viewer.compatible(self._text)
+            self.viewer.node_selected = self
+            self.viewer.draw_parsed_tree()
+        self.viewer._cframe.pack(expand=1, fill='both', side = LEFT)
 
 
     def set_merge(self, tree):
@@ -591,9 +602,11 @@ class GraphWidget(TreeWidget):
                         for k in range(0, len(parent._tree)):
                             if isinstance(parent._tree[k], basestring):
                                 if len(child._tree) == 0 and parent._tree[k] == child._tree.node:
+                                    pid = id(parent._tree)
                                     parent._tree.pop(k)
                                     break
                             elif parent._tree[k] == child._tree:
+                                pid = id(parent._tree)
                                 parent._tree.pop(k)
                                 break
                         if isinstance(child._tree, basestring):
@@ -601,7 +614,7 @@ class GraphWidget(TreeWidget):
                         self.tree_set.append(child._tree)
                         self._parent._merge.merge = None
                         self._parent._merge.current = None
-                        self._parent.redraw()
+                        self._parent.redraw(pid)
                         #parent.remove_child(child)
                         child['draggable'] = 1
                         #child.__parent = parent.parent()
@@ -1042,6 +1055,27 @@ class TAGTreeSetView(object):
         self._tagview.pack(expand=1, fill='both')
         self._frame.pack(fill='both', side = LEFT)
         self._tw.pack(expand=1, fill='both', side = LEFT)
+
+    def focus(self):
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                if not isinstance(tree, type(self._trees)):
+                    if tree._lex:
+                        tree[subpath] = tree[subpath].copy(True)
+
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+
+        if not isinstance(tree, type(self._trees)):
+            if tree._lex:
+                tree.lexicalize()
+                tree._lex = False
+            return tree
 
     def display(self, event=None):
         """
@@ -1487,18 +1521,50 @@ class DependencyGraphView(TAGTreeSetView):
         self.highlight_button['command'] = self.parse
         self.keep_button.pack_forget()
         self.remove_button.pack_forget()
-        self._show_fs_button['text'] = 'Open Parsed File'
+        #self._show_fs_button['text'] = 'Open Parsed File'
+        #self.tree_selected = {}
+        self._show_fs_button['text'] = 'Select Tree'
+        self.node_trees = {}
+        self.tree_widget = {}
+        self._show_fs_button['command'] = self.select_tree
         self.file_opt = {}
-        self._show_fs_button['command'] = self.openparsefile
+        #self._show_fs_button['command'] = self.openparsefile
         self._sfs_button.pack_forget()
         self.notfl['text'] = ''
         self.nottl['text'] = ''
         self.tfcl.pack_forget()
         self.tcl.pack_forget()
         self.alltrees = tagset
+        self.elements = []
         self.redraw()
         self.clear()
         #self.parser = parser
+
+    def select_tree(self):
+        print self.node_trees[self.node_selected]
+        if self.node_trees[self.node_selected] == None:
+            t = self.focus()
+            if t == None:
+                return
+            self.node_trees[self.node_selected] = t
+            self._show_fs_button['text'] = 'Cancel'
+            self.tree_selected = False
+        else:
+            self._show_fs_button['text'] = 'Select'
+            self.tree_selected = True
+            self.node_trees[self.node_selected] = None
+    
+    def draw_parsed_tree(self):
+        if self.node_selected == None:
+            return
+        print id(self.node_selected)
+        if self.node_trees[self.node_selected]:
+            self._show_fs_button['text'] = 'Cancel'
+            tree = self.node_trees[self.node_selected]
+            self._tw.redraw(self._show_fs, tree)
+        else:
+            self._show_fs_button['text'] = 'Select'
+
 
     def openparsefile(self):
         self.filename = tkFileDialog.askopenfilename(**self.file_opt)
@@ -1525,7 +1591,7 @@ class DependencyGraphView(TAGTreeSetView):
         fset = search(lex_list, {}, self.alltrees)
         self.update(fset)
 
-    def redraw(self):
+    def redraw(self, pid=None, hid=None):
         """
         Update the current canvas to display another tree, set te feature
         sturctures to display or hidden.
@@ -1539,8 +1605,7 @@ class DependencyGraphView(TAGTreeSetView):
         #                     self._top, self, self.boxit)
         #self._cframe.pack(expand=1, fill='both', side = LEFT)
         #print self._merge.trees
-        for i in self._widgets:
-            self._cframe.destroy_widget(i)
+
         self._size = IntVar(self._top)
         self._size.set(12)
         bold = ('helvetica', -self._size.get(), 'bold')
@@ -1549,18 +1614,58 @@ class DependencyGraphView(TAGTreeSetView):
         self._width = 0
         for i in self._tset:
             self._width += int(ceil(sqrt(len(i))))
-        self._widgets = []
+        if pid:
+            pw = self.tree_widget[pid]
+            del self.tree_widget[pid]
+        if hid:
+            hw = self.tree_widget[hid]
+            del self.tree_widget[hid]
         for i in range(len(self._tset)):
         #    print trees[i]
             #if isinstance(trees[i], TAGTree):
             #    fs = trees[i].get_all_fs()
             #else:
             #    fs = None
-            widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
-                             self._top, self, self.boxit)
+            #print self._tset[i]
+            #widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+            #                 self._top, self, self.boxit)
+            if not id(self._tset[i]) in self.tree_widget:
+                if pid and hid:
+                    print pw
+                    print pw._treeseg
+                    print hw
+                    print hw._treeseg
+                #if pid:
+                    self._cframe.remove_widget(pw)
+                #if hid:
+                    hw.remove_widget(hw._treeseg)
+                    #print hw._treeseg.__parent
+                    pw._treeseg._add_child_widget(hw._treeseg)
+                    widget = pw
+                else:
+                    widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+                                     self._top, self, self.boxit)
+            else:
+                widget = self.tree_widget[id(self._tset[i])]
+            self.tree_widget[id(self._tset[i])] = widget
             #widget.set_parent_window(self._top)
+
+
+        for i in self._widgets:
+            if i in self.tree_widget.values():
+                self._cframe.remove_widget(i)
+                continue
+            else:
+                self._cframe.destroy_widget(i)
+
+        self._widgets = []
+        for widget in self.tree_widget.values():
             self._widgets.append(widget)
             self._cframe.add_widget(widget, 0, 0)
+
+        for e in self.elements:
+            if not e in self.node_trees:
+                self.node_trees[e] = None
 
         self._layout()
         self._cframe.pack(expand=1, fill='both', side = LEFT)
@@ -1722,7 +1827,6 @@ class TAGTree(Tree):
         """
         morph = self._morph
         fs = self._lex_fs
-        print fs
         heads = self.get_head()
         for head in heads:
             for m in morph:
@@ -1745,20 +1849,13 @@ class TAGTree(Tree):
                             stack = []
                             for key in keys:
                                 stack.append([f[node], key])
-                            print stack
                             #stack = [[f[node], key] for key in keys]
                             while len(stack) > 0:
                                 path = stack.pop()
-                                print stack
                                 feat = path[0]
                                 for e in range(1, len(path)):
                                     feat = feat[path[e]]
                                 #feat = f[k]
-                                print feat
-                                #print
-                                #print 
-                                #print
-                                #print all_fs
                                 first_key = feat.keys()[0]
                                 if first_key[:5] == '__or_':
                                     mapping = feat[first_key].split(':')
@@ -1790,14 +1887,11 @@ class TAGTree(Tree):
                                     else:
                                         continue
                                 else:
-                                    print path
                                     feat_list = []
                                     for key in feat:
                                         items = copy.copy(path)
                                         items.append(key)
                                         feat_list.append(items)
-                                        print key
-                                        print feat_list
                                     #items = [pathappend(key) for key in feat.keys()]
                                     stack += feat_list
                             
@@ -1919,23 +2013,23 @@ class TAGTree(Tree):
     def at_anchor_left(self, tree):
         tree_name = tree.node
         self._leaves = self.leaves()
-        sub_node = self.get_substitution_node()
-        ind = self._leaves.index(sub_node)
-        left_node = self._leaves[ind-1]
-        if left_node.node == tree_name:
-            return True
-        else:
-            return False
+        nodes = self.get_substitution_node()
+        for sub_node in nodes:
+            ind = self._leaves.index(sub_node)
+            left_node = self._leaves[ind-1]
+            if left_node.node == tree_name:
+                return True
+            else:
+                return False
 
     def prefix_search(self, tree_name):
         trees = []
         name = self.node.split('_')
-        if len(name) > 1:
-            prefix = name[0]
-        if prefix == prefix:
+        prefix = name[0]
+        if prefix == tree_name:
             trees.append(self)
         for child in self:
-            trees.extend(child.search())
+            trees.extend(child.prefix_search(tree_name))
         return trees
 
     def delete_all_child(self):
@@ -1978,7 +2072,23 @@ class TAGTree(Tree):
         for leaf in self.leaves():
             if leaf.attr == 'foot':
                 return leaf
-        return None        
+        return None 
+
+    def correct_name(self):
+        tree = copy.deepcopy(self)
+        tree.check_name([tree.node], 0)
+        return tree       
+
+    def check_name(self, names, count):
+        for child in self:
+            if child.node in names:
+                name = child.node.split("_")[0]
+                child.node = name + '_' + str(count)
+                count += 1
+            names.append(child.node)
+            for sub in child:
+                count = child.check_name(names, count)
+        return count
 
 def _fs_name(node_name, top):
     try:
@@ -2076,9 +2186,7 @@ def remove_or_tag(feat):
         if key[:5] == '__or_' and length > 1:
             values = feat.values()
             value = ''
-            print keys, feat.values()
             for v in values:
-                print type(value), value, type(v), v
                 value = value + v + '/'
             feat['__value__'] = value[:-1]
             for key in keys:
@@ -2289,16 +2397,16 @@ def demo():
     from util import xtag_parser
     from util import parse_from_files
 
-    cata_str = nltk.data.find('xtag_grammar/english.gram').open().read()
+    cata_str = nltk.data.find('xtag_grammar/english/english.gram').open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
     t = parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
     t.set_start_fs(sfs)
-    for i in t['family-files']['Tnx0ARBPnx1.trees']:
-        tree = t['family-files']['Tnx0ARBPnx1.trees'][i]
+    aaa= t['family-files']['TEnx1V.trees']['\x02Enx1V']
+    #print aaa.prefix_search('NP')
     #print tree.get_substitution_node()
-    A = TAGTree('P',[])
+    #A = TAGTree('P',[])
     #load()
     #print tree.search('S_r').get_bottom_feature()
     #print tree.search('VP').get_top_feature()
@@ -2312,9 +2420,9 @@ def demo():
 
 
 if __name__ == '__main__':
-    #demo()
+    demo()
     #load()
-    install()
+    #install()
 
 
 """
