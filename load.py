@@ -1147,13 +1147,13 @@ def get_morph_from_syntax(syn_entry,word):
 
 def word_to_morph(word):
     """
-    Accepts a word as the parameter amd returns all morphs pf that word.
+    Accepts a word as the parameter amd returns all morphs of that word.
 
     :param word: The word you want to search
     :type word: str
 
     :return: The morph of the word
-    :rtype: tuple(bool,list,str)
+    :rtype: tuple(bool,list(tuple(str,str,list(str))))
 
     The first component of the return value is True or False, True means the
     word exist in the morph, so we can use it as a normal word. False means
@@ -1230,14 +1230,15 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
         # If it is the case then we will use %s syntax instead, and then the
         # accept_morph_aux is always True to disable the accept_morph
         accept_morph = (morph_entry[0] == i[0][word_pos][0]) or accept_morph_aux
-        accept_exist = (word_exist == False)
+        accept_exist = (word_exist == False) # Not used any more
 
         if check_pos == True:  # We will check the pos
             # Move it to here to reduce calculation
             accept_pos = check_pos_equality(morph_entry[1],i[0][word_pos][1])
-            accept = (accept_morph and accept_pos) or accept_exist
+            accept = (accept_morph and accept_pos) #or accept_exist # See below
         else:  # Do not check pos
-            accept = accept_morph or accept_exist
+            accept = accept_morph #or accept_exist # Now pos must be checked even if
+                                                   # the word is not found.
 
         if accept:
             morph_feature = []
@@ -1375,8 +1376,11 @@ def init(morph,syntax,temp,default,mapping):
 
     #### Patch for using default grammar: add '%s' into dicts[0] ####
     dicts[0]['%s'] = []
+    default_morph_dict = dicts[0]['%s']
     for i in dicts[1]['%s']:
-        dicts[0]['%s'].append(('%s',i[0][0][1],""))
+        entry = ('%s',i[0][0][1],[])
+        if entry not in default_morph_dict:
+            default_morph_dict.append(('%s',i[0][0][1],[]))
     ### Please Notice that there is not a line '%s' in the file, it is
     ### inserted here.
     
