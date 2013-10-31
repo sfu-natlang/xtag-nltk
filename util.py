@@ -1472,7 +1472,7 @@ def search(lex_list, count, alltrees):
                     if tf in alltrees[sub]:
                         index = sub
                 if not index:
-                    raise NameError('No tree fmaily')
+                    raise NameError('No tree family')
                 sset[key] += alltrees[index][tf].copy(True)
                 for t in sset[key]:
                     if sset[key][t]._lex:
