@@ -151,8 +151,26 @@ def demo():
     #grammar = restore()
     #ppdp = XTAGParser()
     #ppdp._grammar = grammar
+    
     viewer = DependencyGraphView(t)
     viewer.mainloop()
+    #a = t[t.keys()[0]]
+    #b = t[t.keys()[1]]
+    #aa = a[a.keys()[0]]
+    #bb = b[b.keys()[0]]
+    #aaa = aa[aa.keys()[0]]
+    #bbb = bb[bb.keys()[1]]
+
+    #aaa= t['family-files']['TEnx1V.trees']['\x02DEnx1V']
+    #bbb= t['tree-files']['determiners.trees']['\x03dD']
+    #print aaa.draw()
+    #print bbb.draw()
+    #print tree_compatible(aaa, bbb)
+    #ttt = tree_compatible(aaa, bbb)[0][0]
+    #ttt.correct_name().draw()
+    #ttt.check_name([ttt.node],0)
+    #ttt.draw()
+    #tree_compatible(aaa, bbb)[2][0].draw()
 
 
 def projective_parse(sent):
@@ -377,7 +395,7 @@ def check_adjunction(tree_1,tree_2,feature_enabled=False):
         return []
     # Get the string name
     foot_name = foot_2.get_node_name()
-    # root_name_no_prefix = get_name_no_prefix(tree_2.get_node_name())
+    # root_name_no_prefix = get_name_prefix(tree_2.get_node_name())
     # is actually the same, but we will not rely on that
     # Strip prefix
     foot_name_prefix = get_name_prefix(foot_2.get_node_name())
