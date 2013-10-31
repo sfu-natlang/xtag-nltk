@@ -284,8 +284,8 @@ def check_name_equality(name_1,name_2):
     :type name_2: str
     :param name_2: The name of the second node
     """
-    name_1 = get_name_no_prefix(name_1)
-    name_2 = get_name_no_prefix(name_2)
+    name_1 = get_name_prefix(name_1)
+    name_2 = get_name_prefix(name_2)
     if name_1 == name_2:
         return True
     else:
@@ -336,7 +336,7 @@ def check_substitution(tree_1,tree_2,anchor_pos,feature_enabled=False):
                 new_tree_2 = deepcopy(tree_2)
                 new_sub_node = new_tree_1.search(i.get_node_name())
 
-                if feature_enbaled == True:
+                if feature_enabled == True:
                     # When doing substitution we need to unify the top features, and check whether it is null
                     new_top_feature = new_sub_node.get_top_feature().unify(new_tree_2.get_top_feature())
                     # Cannot unify
@@ -382,7 +382,7 @@ def check_adjunction(tree_1,tree_2,feature_enabled=False):
     # Strip prefix
     foot_name_prefix = get_name_prefix(foot_2.get_node_name())
     # Using prefix to search for a list of nodes
-    names = foot_1.prefix_search(foot_name_prefix)
+    names = tree_1.prefix_search(foot_name_prefix)
     # Check each possible node that is 
     for i in names:
         # Make copies, including feature structures in each tree
