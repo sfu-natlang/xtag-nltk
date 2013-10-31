@@ -1208,7 +1208,10 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
     """
     global dicts
     result = []
-    (syn_entry,accept_morph_aux) = get_syntax_entry(morph_entry[0])
+    # Mind that all words in syntax is lower case, but in morph it may be not
+    # So convert them into lower case before searching in the dictionary
+    morph_word = morph_entry[0].lower()
+    (syn_entry,accept_morph_aux) = get_syntax_entry(morph_word)
     #######
     # syn_entry is the set of lines having the same index, of the same importance
     # syn_entry[i] is one line with a particular index
@@ -1223,13 +1226,13 @@ def morph_to_feature(morph_entry,word_exist,word,check_pos=True):
         # First find the morph we are going to seaech in the morph list
         # i.e. i[0]. We cannot always assume that the morph is the first one
         for j in range(0,len(i[0])):
-            if i[0][j][0] == morph_entry[0]:
+            if i[0][j][0] == morph_word:
                 word_pos = j
                 break
         # accept_morph_aux is used when the word has a morph but not in the syntax
         # If it is the case then we will use %s syntax instead, and then the
         # accept_morph_aux is always True to disable the accept_morph
-        accept_morph = (morph_entry[0] == i[0][word_pos][0]) or accept_morph_aux
+        accept_morph = (morph_word == i[0][word_pos][0]) or accept_morph_aux
         accept_exist = (word_exist == False) # Not used any more
 
         if check_pos == True:  # We will check the pos
