@@ -125,15 +125,17 @@ class LexView(object):
             self._lex_tag_set(lex_list, fset)
             print word
             for morph in lex_list:
-                print morph[0]
+                print morph[0], len(morph[0])
                 if len(morph[0]) > 1:
                     phrases = [v[0] for v in morph[0]]
-                    if all(phrase in words for phrase in phrases):
+                    if phrases == words:
                         index = ''
                         print phrases
+                        print morph
                         for i in phrases:
                             index = index + i + ' '
-                        self._tagset[index] = TAGTreeSet()
+                        if not index in self._tagset:
+                            self._tagset[index] = TAGTreeSet()
                         fset = self._tagset[index]
                         self._lex_tag_set([morph], fset)
         self._treeview.update(self._tagset)
@@ -165,17 +167,18 @@ class LexView(object):
         return
     
     def search(self):
-        self.clean_option()
         words = self._e.get().split()
         if len(words) == 0:
         #    self.show_all()
             return
+        self.clean_option()
         self._tagset = TAGTreeSet()
         self._treeview.clear()
         for word in words:
             self._tagset[word] = TAGTreeSet()
             fset = self._tagset[word]
             lex_list = word_to_features(word)
+            print lex_list
             self._lex_tag_set(lex_list, fset)
             '''
             for morph in lex_list:
@@ -316,6 +319,9 @@ class LexView(object):
 def demo():
     t = load()
     viewer = LexView(t)
+    faef = word_to_features('forgot')
+    for i in faef:
+        print i
     viewer.mainloop()
 
 if __name__ == '__main__':
