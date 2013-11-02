@@ -1332,6 +1332,8 @@ class TAGTreeSetView(object):
                              % type(self).__name__)
         if not isinstance(tree, type(self._trees)):
             self._tw.redraw(self._show_fs, tree, keep=True, reg=self._e.get())
+        self._show_fs_button['text'] = 'Show ALL Features'
+        self._show_fs = False
         #return
 
     def highlight(self):
@@ -1367,6 +1369,8 @@ class TAGTreeSetView(object):
                              % type(self).__name__)
         if not isinstance(tree, type(self._trees)):
             self._tw.redraw(self._show_fs, tree, remove=True, reg=self._e.get())
+        self._show_fs_button['text'] = 'Show ALL Features'
+        self._show_fs = False
         #return
 
 class TAGTreeSet(dict):
