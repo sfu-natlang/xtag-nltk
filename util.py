@@ -186,7 +186,7 @@ class TreeMerge(object):
                     self.trees.remove(head._tree)
                 self.merge.reset()
                 self.merge = None
-                self._parent.redraw(pid, hid)
+                self._parent.redraw()
             else:
                 self.merge.reset()
                 #tree.reset()
@@ -373,6 +373,7 @@ class GraphElementWidget(BoxWidget):
             #    parent = self.parent()
             parent = self
             parent._merge.connect(parent)
+            print parent, 21323
             self._select = 2
             #self.parent()._anc.rollback(self)
             self['fill'] = 'red'
@@ -389,7 +390,7 @@ class GraphElementWidget(BoxWidget):
             self._merge.current = self
             self._select = 1
             self.viewer.compatible(self._text)
-            self.viewer.node_selected = self
+            self.viewer.node_selected = self.parent()._tree
             self.viewer.draw_parsed_tree()
         self.viewer._cframe.pack(expand=1, fill='both', side = LEFT)
 
@@ -441,8 +442,16 @@ class GraphWidget(TreeWidget):
         self.__callbacks = {}
         self.__draggable = 1
         self['draggable'] = 1
+
+        self.init_tags()
+
+    def _init_menubar(self):
+        pass
+
+    def init_tags(self):
         self._ltconnect = defaultdict(list)
         self._line_tags = defaultdict(list)
+        self._tree_tseg = defaultdict(list)
         self._element_tags = {}
 
         for tseg in self._expanded_trees.values():
@@ -603,18 +612,27 @@ class GraphWidget(TreeWidget):
                             if isinstance(parent._tree[k], basestring):
                                 if len(child._tree) == 0 and parent._tree[k] == child._tree.node:
                                     pid = id(parent._tree)
+                                    cw = child
+                                    pw = parent
                                     parent._tree.pop(k)
                                     break
                             elif parent._tree[k] == child._tree:
                                 pid = id(parent._tree)
+                                cw = child
+                                pw = parent
                                 parent._tree.pop(k)
                                 break
                         if isinstance(child._tree, basestring):
                             child._tree = Tree(child._tree, [])
+                        #print self._tree_tseg[child._tree]
+                        #print self._tree_tseg[parent._tree]
+                        #widget = self.parent.tree_widget[pid]._treeseg
+                        #print child._tree.parent()
+
                         self.tree_set.append(child._tree)
                         self._parent._merge.merge = None
                         self._parent._merge.current = None
-                        self._parent.redraw(pid)
+                        self._parent.redraw()
                         #parent.remove_child(child)
                         child['draggable'] = 1
                         #child.__parent = parent.parent()
@@ -693,6 +711,43 @@ class GraphWidget(TreeWidget):
         for i in range(len(t)):
             child = t[i]
             self._make_collapsed_trees(canvas, child, key + (i,))    
+
+class CommentWidget(StackWidget):
+    def __init__(self, canvas, parent, **attribs):
+        self.canvas = canvas
+        self.attribs = attribs
+        self.viewer = parent
+        self.tri = TextWidget(canvas, u'\u25b6'.encode('utf-8') + '    COMMENTS')
+        self.tri.bind_click(self.collapse)
+        self.show = False
+        #comment = TextWidget(canvas, )
+        self.stack = StackWidget(canvas, self.tri, **attribs)
+
+    def widget(self):
+        return self.stack
+
+    def collapse(self, event):
+        print 'collapse'
+        if self.show:
+            self.viewer._cframe.destroy_widget(self.stack)
+            self.tri = TextWidget(self.canvas, u'\u25b6'.encode('utf-8') + '    COMMENTS')
+            self.tri.bind_click(self.collapse)
+            #comment = TextWidget(self.canvas, 'TEST')
+            self.stack = StackWidget(self.canvas, self.tri, **self.attribs)
+        else:
+            self.viewer._cframe.destroy_widget(self.stack)
+            self.tri = TextWidget(self.canvas, u'\u25bc'.encode('utf-8') + '    COMMENTS')
+            self.tri.bind_click(self.collapse)
+            comment = TextWidget(self.canvas, 'TEST faef egre adacc dad vrv rbvda hfur vb aubcacbxjnckjzjhxcuiadhjsafjafhuifhajkdhfakjhakfjhjhsjfh', width=260)
+            hspace1 = SpaceWidget(self.canvas, 300, 0)
+            hspace2 = SpaceWidget(self.canvas, 300, 0)              
+            tstack = StackWidget(self.canvas, hspace1, comment, hspace2)
+            box = BoxWidget(self.canvas, tstack)
+            self.stack = StackWidget(self.canvas, self.tri, box, align='left')
+        self.show = not self.show
+
+            #self.insert_child(0, comment)
+        self.viewer.collapse_comment()
 
 class TAGTreeWidget(TreeWidget):
     """
@@ -845,7 +900,7 @@ class TAGTreeView(TreeView):
 
     """
     def __init__(self, parent, trees):
-
+        #self.parent == None
         if parent[0] is False:
             self._top = Tk()
             self._top.title('NLTK')
@@ -854,16 +909,67 @@ class TAGTreeView(TreeView):
             self._top.bind('<Control-q>', self.destroy)
         else:
             self._top = parent[1]
+        #    self.parent = parent[1]
 
         self._cframe = CanvasFrame(self._top)
         self._widgets = []
+        self.treecomment = {}
+        self.oldcomment = None
+        #self._cframe.add_widget(self.comment)
+        #self.comment = None
+        #self.commentwidget = None
+        self.show_fs = True
+        self._trees = trees
         self.redraw(True, trees)
+
+
+    def _init_menubar(self):
+        pass
 
     def clear(self):
         """
         Clean canvas
         """
+        #self.comment = None
+        #if self.commentwidget:
+        #    self._cframe.destroy_widget(self.commentwidget)
         self.redraw(False)
+
+    def collapse_comment(self):
+        self._cframe.add_widget(self.treecomment[id(self._trees[0])].widget(), 750, 0)
+
+            #print 'update'
+        trees = self._trees
+        show = self.show_fs
+        for i in self._widgets:
+            self._cframe.destroy_widget(i)
+        self._sizeco = IntVar(self._top)
+        self._size.set(12)
+        bold = ('helvetica', -self._size.get(), 'bold')
+        helv = ('helvetica', -self._size.get())
+
+
+        self._width = int(ceil(sqrt(len(trees))))
+        self._widgets = []
+        for i in range(len(trees)):
+            if isinstance(trees[i], TAGTree):
+                fs = trees[i].get_all_fs()
+            else:
+                fs = None
+            widget = TAGTreeWidget(self._cframe.canvas(), trees[i], fs,
+                                show, self._top, leaf_color='#008040',
+                                roof_color='#004040', roof_fill='white',
+                                line_color='#004040', leaf_font=helv, 
+                                **self.attribs)
+            widget['yspace'] = 70
+            widget['xspace'] = 70
+            #widget.set_parent_window(self._top)
+            self._widgets.append(widget)
+            self._cframe.add_widget(widget, 0, 0)
+
+        
+        self._layout()
+        self._cframe.pack(expand=1, fill='both', side = LEFT)
 
     def redraw(self, show, *trees, **attribs):
         """
@@ -873,14 +979,33 @@ class TAGTreeView(TreeView):
         :param show: a boolean value for whether to show the feature
         sturcture on the canvas
         :param trees: a list of tree segments
-        """   
+        """ 
+        self.attribs = attribs
+        if trees and isinstance(trees[0], TAGTree): 
+            if self.oldcomment:
+                self._cframe.destroy_widget(self.oldcomment.widget()) 
+            #if not id(trees[0]) in self.treecomment:
+            #    self.treecomment[id(trees[0])] = CommentWidget(self._cframe.canvas(), self)
+            #else:
+            self.treecomment[id(trees[0])] = CommentWidget(self._cframe.canvas(), self)
+            self.oldcomment = self.treecomment[id(trees[0])]
+            self._cframe.add_widget(self.oldcomment.widget(), 750, 0)
+            print 'add'
+        else:
+            if self.oldcomment:
+                self._cframe.destroy_widget(self.oldcomment.widget())
+                self.oldcomment = None
+
+            #print 'update'
         self._trees = trees
+        self.show_fs = show
         for i in self._widgets:
             self._cframe.destroy_widget(i)
         self._size = IntVar(self._top)
         self._size.set(12)
         bold = ('helvetica', -self._size.get(), 'bold')
         helv = ('helvetica', -self._size.get())
+
 
         self._width = int(ceil(sqrt(len(trees))))
         self._widgets = []
@@ -900,9 +1025,11 @@ class TAGTreeView(TreeView):
             self._widgets.append(widget)
             self._cframe.add_widget(widget, 0, 0)
 
+        
         self._layout()
+        print 12, self._cframe._scrollwatcher.child_widgets()
         self._cframe.pack(expand=1, fill='both', side = LEFT)
-        self._init_menubar()
+        #self._init_menubar()
 
     def pack(self, cnf={}, **kw):
         """
@@ -1472,7 +1599,7 @@ def search(lex_list, count, alltrees):
                     if tf in alltrees[sub]:
                         index = sub
                 if not index:
-                    raise NameError('No tree family')
+                    raise NameError('No tree fmaily')
                 sset[key] += alltrees[index][tf].copy(True)
                 for t in sset[key]:
                     if sset[key][t]._lex:
@@ -1541,26 +1668,26 @@ class DependencyGraphView(TAGTreeSetView):
         #self.parser = parser
 
     def select_tree(self):
-        print self.node_trees[self.node_selected]
-        if self.node_trees[self.node_selected] == None:
+        print self.node_trees[id(self.node_selected)]
+        if self.node_trees[id(self.node_selected)] == None:
             t = self.focus()
             if t == None:
                 return
-            self.node_trees[self.node_selected] = t
+            self.node_trees[id(self.node_selected)] = t
             self._show_fs_button['text'] = 'Cancel'
             self.tree_selected = False
         else:
             self._show_fs_button['text'] = 'Select'
             self.tree_selected = True
-            self.node_trees[self.node_selected] = None
+            self.node_trees[id(self.node_selected)] = None
     
     def draw_parsed_tree(self):
         if self.node_selected == None:
             return
         print id(self.node_selected)
-        if self.node_trees[self.node_selected]:
+        if self.node_trees[id(self.node_selected)]:
             self._show_fs_button['text'] = 'Cancel'
-            tree = self.node_trees[self.node_selected]
+            tree = self.node_trees[id(self.node_selected)]
             self._tw.redraw(self._show_fs, tree)
         else:
             self._show_fs_button['text'] = 'Select'
@@ -1582,6 +1709,9 @@ class DependencyGraphView(TAGTreeSetView):
         self._merge = TreeMerge(trees, self)
         self._tset = self._merge.tree()
         self.redraw()
+        self.node_trees = {}
+        for tree in self._tset:
+            self.node_trees[id(tree)] = None
         #graph = self.parser.parse(words)
         #print graph
 
@@ -1590,16 +1720,8 @@ class DependencyGraphView(TAGTreeSetView):
         lex_list = word_to_features(word)
         fset = search(lex_list, {}, self.alltrees)
         self.update(fset)
-
+    """
     def redraw(self, pid=None, hid=None):
-        """
-        Update the current canvas to display another tree, set te feature
-        sturctures to display or hidden.
-
-        :param show: a boolean value for whether to show the feature
-        sturcture on the canvas
-        :param trees: a list of tree segments
-        """
         #cf = CanvasFrame(width=550, height=450, closeenough=2)
         #GraphWidget(self._cframe.canvas(), self._tset[0], self._merge,
         #                     self._top, self, self.boxit)
@@ -1611,55 +1733,66 @@ class DependencyGraphView(TAGTreeSetView):
         bold = ('helvetica', -self._size.get(), 'bold')
         helv = ('helvetica', -self._size.get())
 
+        pw = None
+        hw = None
         self._width = 0
         for i in self._tset:
             self._width += int(ceil(sqrt(len(i))))
-        if pid:
-            pw = self.tree_widget[pid]
-            del self.tree_widget[pid]
-        if hid:
-            hw = self.tree_widget[hid]
-            del self.tree_widget[hid]
-        for i in range(len(self._tset)):
-        #    print trees[i]
-            #if isinstance(trees[i], TAGTree):
-            #    fs = trees[i].get_all_fs()
-            #else:
-            #    fs = None
-            #print self._tset[i]
-            #widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
-            #                 self._top, self, self.boxit)
-            if not id(self._tset[i]) in self.tree_widget:
-                if pid and hid:
-                    print pw
-                    print pw._treeseg
-                    print hw
-                    print hw._treeseg
-                #if pid:
-                    self._cframe.remove_widget(pw)
-                #if hid:
-                    hw.remove_widget(hw._treeseg)
-                    #print hw._treeseg.__parent
-                    pw._treeseg._add_child_widget(hw._treeseg)
-                    widget = pw
-                else:
-                    widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
-                                     self._top, self, self.boxit)
-            else:
-                widget = self.tree_widget[id(self._tset[i])]
-            self.tree_widget[id(self._tset[i])] = widget
-            #widget.set_parent_window(self._top)
-
 
         for i in self._widgets:
             if i in self.tree_widget.values():
-                self._cframe.remove_widget(i)
+                #self._cframe.remove_widget(i)
                 continue
             else:
                 self._cframe.destroy_widget(i)
 
+        if isinstance(pid, int):
+            pw = self.tree_widget[pid]
+            del self.tree_widget[pid]
+        if isinstance(hid, int):
+            hw = self.tree_widget[hid]
+            del self.tree_widget[hid]
+        for i in range(len(self._tset)):
+
+            if not id(self._tset[i]) in self.tree_widget:
+                if pw and hw:
+                    self._cframe.remove_widget(pw)
+                    self._cframe.remove_widget(hw)
+
+                    parent = pw._treeseg
+                    child = hw._treeseg
+                    child.parent()._remove_child_widget(child)
+                    #print child.parent(), 231
+                    parent._subtrees.insert(-1, child)
+                    parent._add_child_widget(child)
+                    parent._lines.append(parent.canvas().create_line(0,0,0,0, fill='#006060'))
+                    parent.update(parent._node)                   
+                    widget = pw
+                    widget.init_tags()
+                elif pid:
+                    if pid._tree == self._tset[i]:
+                        widget = pid.parent()
+                    elif hid._tree == self._tset[i]:
+                        widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+                                     self._top, self, self.boxit)
+                        self.node_trees[widget._treeseg._node] = self.node_trees[hid._node]
+                        del self.node_trees[hid._node]
+                else:
+                    print pid, 200, self._tset[i]
+                    widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+                                     self._top, self, self.boxit)
+            else:
+                print pid, 300, self._tset[i]
+                widget = self.tree_widget[id(self._tset[i])]
+                print widget._treeseg
+                self._cframe.remove_widget(widget)
+            print widget, self._tset[i], 12415425
+            self.tree_widget[id(self._tset[i])] = widget
+        print self.tree_widget
+
         self._widgets = []
         for widget in self.tree_widget.values():
+            print widget#, widget._treeseg, 1
             self._widgets.append(widget)
             self._cframe.add_widget(widget, 0, 0)
 
@@ -1670,7 +1803,49 @@ class DependencyGraphView(TAGTreeSetView):
         self._layout()
         self._cframe.pack(expand=1, fill='both', side = LEFT)
         #self._init_menubar()
-    
+        """
+
+    def redraw(self):
+        """
+        Update the current canvas to display another tree, set te feature
+        sturctures to display or hidden.
+
+        :param show: a boolean value for whether to show the feature
+        sturcture on the canvas
+        :param trees: a list of tree segments
+        """
+        #cf = CanvasFrame(width=550, height=450, closeenough=2)
+        #GraphWidget(self._cframe.canvas(), self._tset[0], self._merge,
+        # self._top, self, self.boxit)
+        #self._cframe.pack(expand=1, fill='both', side = LEFT)
+        #print self._merge.trees
+        for i in self._widgets:
+            self._cframe.destroy_widget(i)
+        self._size = IntVar(self._top)
+        self._size.set(12)
+        bold = ('helvetica', -self._size.get(), 'bold')
+        helv = ('helvetica', -self._size.get())
+
+        self._width = 0
+        for i in self._tset:
+            self._width += int(ceil(sqrt(len(i))))
+        self._widgets = []
+        for i in range(len(self._tset)):
+        # print trees[i]
+            #if isinstance(trees[i], TAGTree):
+            # fs = trees[i].get_all_fs()
+            #else:
+            # fs = None
+            widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+                             self._top, self, self.boxit)
+            #widget.set_parent_window(self._top)
+            self._widgets.append(widget)
+            self._cframe.add_widget(widget, 0, 0)
+
+        self._layout()
+        self._cframe.pack(expand=1, fill='both', side = LEFT)
+        #self._init_menubar()
+
     def _layout(self):
         i = x = y = ymax = 0
         width = self._width
@@ -1843,7 +2018,11 @@ class TAGTree(Tree):
                         #print f
                         for node in f:
                             for attr in f[node]:
-                                all_fs[node][attr] = f[node][attr]
+                                if node in all_fs:
+                                    all_fs[node][attr] = f[node][attr]
+                                else:
+                                    all_fs[node] = FeatStruct()
+                                    all_fs[attr] = f[node][attr]
                         for node in f:
                             keys = f[node].keys()
                             stack = []
@@ -2420,9 +2599,9 @@ def demo():
 
 
 if __name__ == '__main__':
-    #demo()
+    demo()
     #load()
-    install()
+    #install()
 
 
 """
