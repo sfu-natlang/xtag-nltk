@@ -632,6 +632,35 @@ def get_next_pair(s,start):
 
     return (entry,value,index_return)
 
+def make_reverse_tree_dict(reverse_trees,tree_list,family_list,entry_list):
+    """
+    Make a dictionary to enable searching words using tree name and family name
+    
+    :param reverse_trees: The dictionary that you want to implement the reverse search
+    :type reverse_trees: dict
+    :param tree_list: The list of available trees for a word
+    :type tree_list: list(str)
+    :param family_list: The list of tree families available for the word
+    :type fanily_list: list(str)
+    :param entry_list: The list of words to be searched as an index
+    :type entry_list: list(tuple(str,str))
+    """
+    for tree in tree_list:
+        if not reverse_trees.has_key(tree):
+            reverse_trees[tree] = []
+        #reverse_tree_list = reverse_trees[tree] # Just an optimization
+        #if not entry_list in reverse_tree_list: # Don't do this
+        # We may have some repetitions here but we just keep that, because
+        # it costs lots of time to do this. Same for below.
+        reverse_trees[tree].append(entry_list[:]) 
+    for tree in family_list:
+        if not reverse_trees.has_key(tree):
+            reverse_trees[tree] = []
+        #reverse_tree_list = reverse_trees[tree] # The same as above
+        #if not entry_list in reverse_tree_list: # Don't do this
+        reverse_trees[tree].append(entry_list[:])
+    return
+
 def analyze_syntax(s):
     # This function returns a dictionary, the index is exactly the <<INDEX>>
     # entry in the syntax file. Each keyword will fetch a list, the element of
@@ -691,16 +720,9 @@ def analyze_syntax(s):
             tokens[line_name].append(temp)
         else:
             tokens[line_name] = [temp]
+            
         # Next we will construct the reverse trees
-        for tree in tree_list:
-            if not reverse_trees.has_key(tree):
-                reverse_trees[tree] = []
-            reverse_trees[tree].append(entry_list[:])
-        for tree in family_list:
-            if not reverse_trees.has_key(tree):
-                reverse_trees[tree] = []
-            reverse_trees[tree].append(entry_list[:])
-        #print entry_list
+        make_reverse_tree_dict(reverse_trees,tree_list,family_list,entry_list)
             
     return (tokens,reverse_trees)
 
@@ -796,7 +818,8 @@ def analyze_template(s):
 # the list of oprion, which will be processed in later phases
 def analyze_tree_1(s):
     """
-    analyze_tree_1() -> list
+    Process 
+    ::
 
     Given the raw string read from a grammar document, this
     function will split the options and TAG trees into a list.  
@@ -1103,7 +1126,7 @@ def analyze_tree_5(xtag_trees):
 #    new_feature = FeatStruct()
 #    for i in feature.keys():
 #        if feature[i].has_key('__value__'):
-#            new_feature[i] = feature[i]['__value__']
+#            new_feature[i] = feature[i]['__va自愿遣返回国lue__']
 #        else:
 #            new_feature[i] = remove_value_tag(feature[i])
 #    return new_feature
@@ -1265,7 +1288,6 @@ def word_to_features(word):
     # This function will convert the word into the feature structures associated
     # with this word. The return value of this function is a list, each element
     # of which is a tuple. The element of the list is the morph of the word.
-    # NOTICE: This function must be run after init() be called, or it will
     # throw the exception.
     """
     word_to_features(word) -> list
