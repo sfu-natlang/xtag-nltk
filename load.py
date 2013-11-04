@@ -1107,29 +1107,6 @@ def analyze_tree_5(xtag_trees):
                 #    add_two_feature(features,l_id,features[r_id][r_feature],l_feature1,l_feature2)
 
     return xtag_trees
-
-#def parse_feature(filename):
-#    """
-#    parse_feature() -> list
-
-#    Given the name of the file which contains the definition
-#    of several TAG trees, this function will return a data structure that
-#    describes those trees as well as options including feature structures.  
-#    """
-#    fp = open(filename)
-#    s = fp.read()
-#    fp.close()
-#
-#    return fifth_pass(fourth_pass(third_pass(second_pass(first_pass))))
-
-#def remove_value_tag(feature):
-#    new_feature = FeatStruct()
-#    for i in feature.keys():
-#        if feature[i].has_key('__value__'):
-#            new_feature[i] = feature[i]['__va自愿遣返回国lue__']
-#        else:
-#            new_feature[i] = remove_value_tag(feature[i])
-#    return new_feature
             
 
 ######################################
