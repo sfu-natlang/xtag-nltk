@@ -34,117 +34,327 @@ class XTAGScorer(NaiveBayesDependencyScorer):
     def train(self, graphs):
         self.classifier = NaiveBayesClassifier(self.label_freqdist, self.feature_probdist)
 """
+class TAGTreeSelector(TAGTreeSetView):
+    def __init__(self, tagtree, callback):
+        TAGTreeSetView.__init__(self, tagtree)
+        self._sfs_button['text'] = 'Select Tree'
+        self._sfs_button['command'] = self.tag_tree_select
+        self.call = callback
 
-class XTAGParser(ProbabilisticProjectiveDependencyParser):
-    def __init__(self):
-        pass
+    def tag_tree_select(self):
+        t = self.focus()
+        if t:
+            self.call(t)
+            self._top.destroy()
 
-    def parse(self, tokens):
-        """
-        Parses the list of tokens subject to the projectivity constraint
-        and the productions in the parser's grammar.  This uses a method
-        similar to the span-concatenation algorithm defined in Eisner (1996).
-        It returns the most probable parse derived from the parser's
-        probabilistic dependency grammar.
-        """
-        self._tokens = list(tokens)
-        chart = []
-        for i in range(0, len(self._tokens) + 1):
-            chart.append([])
-            for j in range(0, len(self._tokens) + 1):
-                chart[i].append(ChartCell(i,j))
-                if i==j+1:
-                    if tokens[i-1] in self._grammar._tags:
-                        for tag in self._grammar._tags[tokens[i-1]]:
-                            chart[i][j].add(DependencySpan(i-1,i,i-1,[-1], [tag]))
-                    else:
-                        print('No tag found for input token \'%s\', parse is impossible.' % tokens[i-1])
-                        return []
-        print '1'
-        for i in range(1,len(self._tokens)+1):
-            for j in range(i-2,-1,-1):
-                for k in range(i-1,j,-1):
-                    for span1 in chart[k][j]._entries:
-                            for span2 in chart[i][k]._entries:
-                                for newspan in self.concatenate(span1, span2):
-                                    chart[i][j].add(newspan)
-        print '2'
-        graphs = []
-        trees = []
-        max_parse = None
-        max_score = 0
-        for parse in chart[len(self._tokens)][0]._entries:
-            conll_format = ""
-            malt_format = ""
-            for i in range(len(tokens)):
-                malt_format += '%s\t%s\t%d\t%s\n' % (tokens[i], 'null', parse._arcs[i] + 1, 'null')
-                conll_format += '\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n' % (i+1, tokens[i], tokens[i], parse._tags[i], parse._tags[i], 'null', parse._arcs[i] + 1, 'null', '-', '-')
-            dg = DependencyGraph(conll_format)
-            score = self.compute_prob(dg)
-            if score > max_score:
-                max_parse = dg.tree()
-                max_score = score
-        print '3'
-        return [max_parse, max_score]
+class DependencyGraphView(TAGTreeSetView):
+    def __init__(self, tagset):
 
-    def compute_prob(self, dg):
+        TAGTreeSetView.__init__(self, tagset)
         """
-        Computes the probability of a dependency graph based
-        on the parser's probability model (defined by the parser's
-        statistical dependency grammar).
+        self._top = Tk()
+        self._top.title('NLTK')
+        self._top.bind('<Control-p>', lambda e: self.print_to_file())
+        self._top.bind('<Control-x>', self.destroy)
+        self._top.bind('<Control-q>', self.destroy)
+        #"""
+        self._cframe = CanvasFrame(self._top, closeenough=1, width=4)
+        self._widgets = []
+        self._merge = TreeMerge([], self)
+        #self._merge = TreeMerge([trees], self)
+        self._tset = self._merge.tree()
+        self._ps = None
+        self._os = None
+        self.w['text'] = '    Input Sentence:    '
+        self.remove_button['text'] = '  Parse  '
+        self.remove_button['command'] = self.parse
+        self.keep_button['text'] = 'Import Tree'
+        self.highlight_button['text'] = 'Export Tree'
+        self.highlight_button['command'] = self.exportparsefile
+        #self.tree_selected = {}
+        self._show_fs_button['text'] = 'Select'
+        self.node_trees = {}
+        self.node_treename = {}
+        self.node_parsed = {}
+        self.tree_widget = {}
+        self._show_fs_button['command'] = self.select_tree
+        self.file_opt = {}
+        self.keep_button['command'] = self.openparsefile
+        self._sfs_button.pack_forget()
+        self.notfl['text'] = ''
+        self.nottl['text'] = ''
+        self.tfcl.pack_forget()
+        self.tcl.pack_forget()
+        self.alltrees = tagset
+        self.elements = []
+        self.redraw()
+        self.clear()
+        #self.parser = parser
 
-        :param dg: A dependency graph to score.
-        :type dg: DependencyGraph
-        :return: The probability of the dependency graph.
-        :rtype: int
+    def compatible_tree_select(self, tree):
+        self.node_parsed[id(self.node_selected)] = tree[0]
+        print tree
+
+
+    def select_tree(self):
+        if self.node_trees[id(self.node_selected)] == None:
+            t, name = self.focus()
+            if t == None:
+                return
+            self.node_trees[id(self.node_selected)] = t
+            self.node_treename[id(self.node_selected)] = name
+            self._show_fs_button['text'] = 'Cancel'
+            self.tree_selected = False
+            if len(self.node_selected) == 0:
+                self.node_parsed[id(self.node_selected)] = t
+                return
+            for subtree in self.node_selected:
+                if id(subtree) in self.node_parsed and not self.node_parsed[id(subtree)] == None:
+                    if id(self.node_selected) in self.node_parsed:
+                        t = self.node_parsed[id(self.node_selected)]
+                    comp_trees = tree_compatible(t, self.node_parsed[id(subtree)])
+                    print comp_trees
+                    tagset = TAGTreeSet()
+                    count = 0
+                    for ct_list in comp_trees:
+                        for ct in ct_list:
+                            tagset['tree'+str(count)] = ct
+                            count += 1
+                    selector = TAGTreeSelector(tagset, self.compatible_tree_select)
+                    selector._top.wait_window(self._top)
+                            #i[0].draw()
+                    #self.update(tagset)
+                             
+        else:
+            self._show_fs_button['text'] = 'Select'
+            self.tree_selected = True
+            self.node_trees[id(self.node_selected)] = None
+            self.node_treename[id(self.node_selected)] = None
+    
+    def draw_parsed_tree(self):
+        if self.node_selected == None:
+            return
+        if self.node_trees[id(self.node_selected)]:
+            self._show_fs_button['text'] = 'Cancel'
+            tree = self.node_trees[id(self.node_selected)]
+            self._tw.redraw(self._show_fs, tree)
+        else:
+            self._show_fs_button['text'] = 'Select'
+
+
+    def openparsefile(self):
+        self.filename = tkFileDialog.askopenfilename(**self.file_opt)
+        data = open(self.filename, 'r').read()
+        graphs = [DependencyGraph(entry)
+              for entry in data.split('\n\n') if entry]
+        self._merge = TreeMerge([graph.tree() for graph in graphs], self)
+        self._tset = self._merge.tree()
+        stack = [tree for tree in self._tset]
+        while len(stack) > 0:
+            e = stack.pop()
+            self.node_trees[id(e)] = None
+            if len(e) > 0:
+                stack += [tree for tree in e]
+        self.redraw()
+
+    def exportparsefile(self):
+        filename = tkFileDialog.asksaveasfilename(**self.file_opt)
+
+        if filename:
+            fp = open(filename, 'w')
+
+        for tree in self._tset:
+            count = 0
+            stack = [(tree, count)]
+            while len(stack) > 0:
+                e, n = stack.pop()
+                count += 1
+                if len(e) > 0:
+                    stack += [(t, count) for t in e]
+                fp.write(e.node + " " + str(n) + '\n')
+            fp.write("\n")
+
+    def parse(self):
+        self.clear()
+        words = word_tokenize(self._e.get())
+        trees = [Tree(word, []) for word in words]
+        self._merge = TreeMerge(trees, self)
+        self._tset = self._merge.tree()
+        self.redraw()
+        self.node_trees = {}
+        for tree in self._tset:
+            self.node_trees[id(tree)] = None
+        #graph = self.parser.parse(words)
+        #print graph
+
+    def compatible(self, word):
+        self.clear()
+        lex_list = word_to_features(word)
+        fset = search(lex_list, {}, self.alltrees)
+        self.update(fset)
+    """
+    def redraw(self, pid=None, hid=None):
+        #cf = CanvasFrame(width=550, height=450, closeenough=2)
+        #GraphWidget(self._cframe.canvas(), self._tset[0], self._merge,
+        #                     self._top, self, self.boxit)
+        #self._cframe.pack(expand=1, fill='both', side = LEFT)
+        #print self._merge.trees
+
+        self._size = IntVar(self._top)
+        self._size.set(12)
+        bold = ('helvetica', -self._size.get(), 'bold')
+        helv = ('helvetica', -self._size.get())
+
+        pw = None
+        hw = None
+        self._width = 0
+        for i in self._tset:
+            self._width += int(ceil(sqrt(len(i))))
+
+        for i in self._widgets:
+            if i in self.tree_widget.values():
+                #self._cframe.remove_widget(i)
+                continue
+            else:
+                self._cframe.destroy_widget(i)
+
+        if isinstance(pid, int):
+            pw = self.tree_widget[pid]
+            del self.tree_widget[pid]
+        if isinstance(hid, int):
+            hw = self.tree_widget[hid]
+            del self.tree_widget[hid]
+        for i in range(len(self._tset)):
+
+            if not id(self._tset[i]) in self.tree_widget:
+                if pw and hw:
+                    self._cframe.remove_widget(pw)
+                    self._cframe.remove_widget(hw)
+
+                    parent = pw._treeseg
+                    child = hw._treeseg
+                    child.parent()._remove_child_widget(child)
+                    #print child.parent(), 231
+                    parent._subtrees.insert(-1, child)
+                    parent._add_child_widget(child)
+                    parent._lines.append(parent.canvas().create_line(0,0,0,0, fill='#006060'))
+                    parent.update(parent._node)                   
+                    widget = pw
+                    widget.init_tags()
+                elif pid:
+                    if pid._tree == self._tset[i]:
+                        widget = pid.parent()
+                    elif hid._tree == self._tset[i]:
+                        widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+                                     self._top, self, self.boxit)
+                        self.node_trees[widget._treeseg._node] = self.node_trees[hid._node]
+                        del self.node_trees[hid._node]
+                else:
+                    print pid, 200, self._tset[i]
+                    widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+                                     self._top, self, self.boxit)
+            else:
+                print pid, 300, self._tset[i]
+                widget = self.tree_widget[id(self._tset[i])]
+                print widget._treeseg
+                self._cframe.remove_widget(widget)
+            print widget, self._tset[i], 12415425
+            self.tree_widget[id(self._tset[i])] = widget
+        print self.tree_widget
+
+        self._widgets = []
+        for widget in self.tree_widget.values():
+            print widget#, widget._treeseg, 1
+            self._widgets.append(widget)
+            self._cframe.add_widget(widget, 0, 0)
+
+        for e in self.elements:
+            if not e in self.node_trees:
+                self.node_trees[e] = None
+
+        self._layout()
+        self._cframe.pack(expand=1, fill='both', side = LEFT)
+        #self._init_menubar()
         """
-        prob = 1.0
-        for node_index in range(1,len(dg.nodelist)):
-            children = dg.nodelist[node_index]['deps']
-            nr_left_children = dg.left_children(node_index)
-            nr_right_children = dg.right_children(node_index)
-            nr_children = nr_left_children + nr_right_children
-            for child_index in range(0 - (nr_left_children + 1), nr_right_children + 2):
-                head_word = dg.nodelist[node_index]['word']
-                head_tag = dg.nodelist[node_index]['tag']
-                child = 'STOP'
-                child_tag = 'STOP'
-                prev_word = 'START'
-                prev_tag = 'START'
-                if child_index < 0:
-                    array_index = child_index + nr_left_children
-                    if array_index >= 0:
-                        child = dg.nodelist[children[array_index]]['word']
-                        child_tag = dg.nodelist[children[array_index]]['tag']
-                    if child_index != -1:
-                        prev_word = dg.nodelist[children[array_index + 1]]['word']
-                        prev_tag =  dg.nodelist[children[array_index + 1]]['tag']
-                    head_event = '(head (%s %s) (mods (%s, %s, %s) left))' % (child, child_tag, prev_tag, head_word, head_tag)
-                    mod_event = '(mods (%s, %s, %s) left))' % (prev_tag, head_word, head_tag)
-                    h_count = self._grammar._events[head_event]
-                    m_count = self._grammar._events[mod_event]
-                    if m_count == 0:
-                        print h_count, 1
-                        print mod_event
-                    prob *= (h_count / m_count)
-                elif child_index > 0:
-                    array_index = child_index + nr_left_children - 1
-                    if array_index < nr_children:
-                        child = dg.nodelist[children[array_index]]['word']
-                        child_tag = dg.nodelist[children[array_index]]['tag']
-                    if child_index != 1:
-                        prev_word = dg.nodelist[children[array_index - 1]]['word']
-                        prev_tag =  dg.nodelist[children[array_index - 1]]['tag']
-                    head_event = '(head (%s %s) (mods (%s, %s, %s) right))' % (child, child_tag, prev_tag, head_word, head_tag)
-                    mod_event = '(mods (%s, %s, %s) right))' % (prev_tag, head_word, head_tag)
-                    h_count = self._grammar._events[head_event]
-                    m_count = self._grammar._events[mod_event]
-                    if m_count == 0:
-                        print h_count, 1
-                        print mod_event
-                    prob *= (h_count / m_count)
-        #prob = 1
-        return prob
+
+    def redraw(self):
+        """
+        Update the current canvas to display another tree, set te feature
+        sturctures to display or hidden.
+
+        :param show: a boolean value for whether to show the feature
+        sturcture on the canvas
+        :param trees: a list of tree segments
+        """
+        #cf = CanvasFrame(width=550, height=450, closeenough=2)
+        #GraphWidget(self._cframe.canvas(), self._tset[0], self._merge,
+        # self._top, self, self.boxit)
+        #self._cframe.pack(expand=1, fill='both', side = LEFT)
+        #print self._merge.trees
+        for i in self._widgets:
+            self._cframe.destroy_widget(i)
+        self._size = IntVar(self._top)
+        self._size.set(12)
+        bold = ('helvetica', -self._size.get(), 'bold')
+        helv = ('helvetica', -self._size.get())
+
+        self._width = 0
+        for i in self._tset:
+            self._width += int(ceil(sqrt(len(i))))
+        self._widgets = []
+        for i in range(len(self._tset)):
+        # print trees[i]
+            #if isinstance(trees[i], TAGTree):
+            # fs = trees[i].get_all_fs()
+            #else:
+            # fs = None
+            widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
+                             self._top, self, self.boxit)
+            #widget.set_parent_window(self._top)
+            self._widgets.append(widget)
+            self._cframe.add_widget(widget, 0, 0)
+
+        self._layout()
+        self._cframe.pack(expand=1, fill='both', side = LEFT)
+        #self._init_menubar()
+
+    def _layout(self):
+        i = x = y = ymax = 0
+        width = self._width
+        for i in range(len(self._widgets)):
+            widget = self._widgets[i]
+            (oldx, oldy) = widget.bbox()[:2]
+            if width == 0:
+                width = 10
+            if i % width == 0:
+                y = ymax
+                x = 0
+            widget.move(x-oldx, y-oldy)
+            x = widget.bbox()[2] + 10
+            ymax = max(ymax, widget.bbox()[3] + 10)
+
+    def boxit(self, canvas, text):
+        big = ('helvetica', -16, 'bold')
+        return GraphElementWidget(canvas, self, TextWidget(canvas, text,
+                                            font=big), text, fill='green')
+
+    def select(self, element):
+        if self._ps == None:
+            self._ps = element
+            self._os = self._ps
+            return
+        if self._ps == element or self._ps._select == 2:
+            return
+        self._ps.reset()
+        self._os = self._ps
+        self._ps = element
+
+    def rollback(self, element):
+        if self._os == None:
+            return
+        self._os = None
+        self._ps = None
+        #self._ps.select()
 
 def demo():
     t = load()
@@ -348,7 +558,8 @@ def check_substitution(tree_1,tree_2,anchor_pos,feature_enabled=False):
 
         # If anchor_pos == True then the anchor of tree_2 must be at the left
         # side of tree_1.
-        if tree_1.at_anchor_left(i) == anchor_pos:
+        #if tree_1.at_anchor_left(i) == anchor_pos:
+        if True:
             if check_name_equality(i.get_node_name(),root_tree_2) == True:
                 new_tree_1 = deepcopy(tree_1)
                 new_tree_2 = deepcopy(tree_2)
