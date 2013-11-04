@@ -81,6 +81,8 @@ class LexView(object):
                              % type(self).__name__)
 
         if not isinstance(tree, type(self._treeview._trees)):
+            words = tree_to_words(subpath)
+            self.update_option(words)
             if tree._lex:
                 tree.lexicalize()
                 tree._lex = False
@@ -93,20 +95,26 @@ class LexView(object):
                     return
             self.phrases.set("")
             if isinstance(tree, type(self._treeview._trees)) and subpath[-6:] == '.trees':
+                tree_fam = tree[subpath]
                 treename = subpath[:-6]
             else:
                 treename = subpath
 
             words = tree_to_words(treename)
-            self.clean_option()
+            self.update_option(words)
 
-            for choice in words:
-                phrase = ''
-                for term in choice:
-                    phrase = phrase + term[0] + ' '
+    def update_option(self, words):
+        self.clean_option()
+        for choice in words:
+            phrase = ''
+            for term in choice:
+                phrase = phrase + term[0] + ' '
+            if not phrase in self._dicword:
                 self._dicword[phrase] = choice
-                import Tkinter as tk
-                self._w['menu'].add_command(label=phrase, command=tk._setit(self.phrases, phrase))
+            else:
+                continue
+            import Tkinter as tk
+            self._w['menu'].add_command(label=phrase, command=tk._setit(self.phrases, phrase))
 
     def clean_option(self):
         self._dicword = {}
@@ -138,6 +146,7 @@ class LexView(object):
                             self._tagset[index] = TAGTreeSet()
                         fset = self._tagset[index]
                         self._lex_tag_set([morph], fset)
+        self._tagset.set_start_fs(self._alltrees.start_fs)
         self._treeview.update(self._tagset)
         self._count = {}
 
