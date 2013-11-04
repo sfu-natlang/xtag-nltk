@@ -10,6 +10,7 @@
 
 from feature import *
 from nltk.featstruct import *
+import test
 
 ###########################################
 # LL Parser for catalog file ##############
@@ -812,17 +813,18 @@ def analyze_template(s):
     return (feature_list,feature_list2)
 
 
-
 # analyze_tree_1(s) will split the options and trees into a list, the first and second
 # element of which is None, the third being the tree, and the fourth being
 # the list of oprion, which will be processed in later phases
 def analyze_tree_1(s):
     """
-    Process 
-    ::
-
-    Given the raw string read from a grammar document, this
-    function will split the options and TAG trees into a list.  
+    Process the tree file for later use. On this stage we just separate the
+    definition of tree structure and feature structures.
+    
+    :param s: The string read from a tree file
+    :type s: str
+    :return: An intermediate result
+    :rtype: list
     """
     i = 0
     last_time = 0    # To record the position since the latest ')'
@@ -833,7 +835,7 @@ def analyze_tree_1(s):
     options = None
     single_tree = None
     
-    is_option = True
+    is_option = True # Distinguish between trees and feature structures
     for i in range(0,len(s)):
         if s[i] == '(':
             stack += 1
@@ -847,9 +849,14 @@ def analyze_tree_1(s):
                 single_tree = s[last_time:i + 1]
                 last_time = i + 1
                 is_option = True
+                
                 # None is a placeholder for those added in later phases
-                xtag_trees.append([None,None,single_tree.strip(),option.strip(),None]) #None here is a placeholder
-
+                xtag_trees.append([None,None,single_tree.strip(),option.strip(),None,None])
+    ############### Temporal Patch ##################
+    trees = test.analyze_tree_file(s)
+    for i in range(0,trees):
+        xtag_trees[i][5] = trees[i][0][1]
+        
     return xtag_trees
 
 def analyze_tree_2(xtag_trees):
