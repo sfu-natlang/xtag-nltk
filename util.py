@@ -177,8 +177,6 @@ class TreeMerge(object):
                 #if len(parent._tree) == 0:
                 #    parent._tree.append(head._tree)
                 #else:
-                print type(parent._tree)
-                print head._tree
                 pid = id(parent._tree)
                 hid = id(head._tree)
                 parent._tree.append(head._tree)
@@ -186,6 +184,7 @@ class TreeMerge(object):
                     self.trees.remove(head._tree)
                 self.merge.reset()
                 self.merge = None
+                self._parent._tw.clear()
                 self._parent.redraw()
             else:
                 self.merge.reset()
@@ -373,7 +372,6 @@ class GraphElementWidget(BoxWidget):
             #    parent = self.parent()
             parent = self
             parent._merge.connect(parent)
-            print parent, 21323
             self._select = 2
             #self.parent()._anc.rollback(self)
             self['fill'] = 'red'
@@ -633,6 +631,7 @@ class GraphWidget(TreeWidget):
                         self._parent._merge.merge = None
                         self._parent._merge.current = None
                         self._parent.redraw()
+                        self._parent._tw.clear()
                         #parent.remove_child(child)
                         child['draggable'] = 1
                         #child.__parent = parent.parent()
@@ -727,7 +726,6 @@ class CommentWidget(StackWidget):
         return self.stack
 
     def collapse(self, event):
-        print 'collapse'
         if self.show:
             self.viewer._cframe.destroy_widget(self.stack)
             self.tri = TextWidget(self.canvas, u'\u25b6'.encode('utf-8') + '    COMMENTS')
@@ -738,7 +736,8 @@ class CommentWidget(StackWidget):
             self.viewer._cframe.destroy_widget(self.stack)
             self.tri = TextWidget(self.canvas, u'\u25bc'.encode('utf-8') + '    COMMENTS')
             self.tri.bind_click(self.collapse)
-            comment = TextWidget(self.canvas, 'TEST faef egre adacc dad vrv rbvda hfur vb aubcacbxjnckjzjhxcuiadhjsafjafhuifhajkdhfakjhakfjhjhsjfh', width=260)
+            print self.viewer._trees
+            comment = TextWidget(self.canvas, self.viewer._trees[0].comment, width=260)
             hspace1 = SpaceWidget(self.canvas, 300, 0)
             hspace2 = SpaceWidget(self.canvas, 300, 0)              
             tstack = StackWidget(self.canvas, hspace1, comment, hspace2)
@@ -990,7 +989,6 @@ class TAGTreeView(TreeView):
             self.treecomment[id(trees[0])] = CommentWidget(self._cframe.canvas(), self)
             self.oldcomment = self.treecomment[id(trees[0])]
             self._cframe.add_widget(self.oldcomment.widget(), 750, 0)
-            print 'add'
         else:
             if self.oldcomment:
                 self._cframe.destroy_widget(self.oldcomment.widget())
@@ -1027,7 +1025,6 @@ class TAGTreeView(TreeView):
 
         
         self._layout()
-        print 12, self._cframe._scrollwatcher.child_widgets()
         self._cframe.pack(expand=1, fill='both', side = LEFT)
         #self._init_menubar()
 
@@ -1202,7 +1199,7 @@ class TAGTreeSetView(object):
             if tree._lex:
                 tree.lexicalize()
                 tree._lex = False
-            return tree
+            return (tree, subpath)
 
     def display(self, event=None):
         """
@@ -1569,10 +1566,11 @@ def xtag_parser(txt):
     UPenn Xtag project
     """
     arglist = analyze_tree_5(analyze_tree_4(analyze_tree_3(analyze_tree_2(analyze_tree_1(txt)))))
-    tagset = TAGTreeSet()       
+    tagset = TAGTreeSet()      
     for element in arglist:
         new_tree = _parse_tree_list(element[2], element[4])
         tree_name = element[0]
+        new_tree.set_comment(element[5]['COMMENTS'])
         tagset[tree_name] = new_tree
     return tagset
 
@@ -1627,6 +1625,7 @@ def search(lex_list, count, alltrees):
                 if not isinstance(sset[key], TAGTree):
                     raise TypeError('Not TAGTree')
                 sset[key].init_lex(morph[0], morph[3], morph[4])
+    fset.set_start_fs(alltrees.start_fs)
     return fset
 
 class DependencyGraphView(TAGTreeSetView):
@@ -1648,18 +1647,18 @@ class DependencyGraphView(TAGTreeSetView):
         self._ps = None
         self._os = None
         self.w['text'] = '    Input Sentence:    '
-        self.highlight_button['text'] = '  Parse  '
-        self.highlight_button['command'] = self.parse
-        self.keep_button.pack_forget()
-        self.remove_button.pack_forget()
-        #self._show_fs_button['text'] = 'Open Parsed File'
+        self.remove_button['text'] = '  Parse  '
+        self.remove_button['command'] = self.parse
+        self.keep_button['text'] = 'Import Tree'
+        self.highlight_button['text'] = 'Export Tree'
         #self.tree_selected = {}
-        self._show_fs_button['text'] = 'Select Tree'
+        self._show_fs_button['text'] = 'Select'
         self.node_trees = {}
+        self.node_treename = {}
         self.tree_widget = {}
         self._show_fs_button['command'] = self.select_tree
         self.file_opt = {}
-        #self._show_fs_button['command'] = self.openparsefile
+        self.keep_button['command'] = self.openparsefile
         self._sfs_button.pack_forget()
         self.notfl['text'] = ''
         self.nottl['text'] = ''
@@ -1672,23 +1671,26 @@ class DependencyGraphView(TAGTreeSetView):
         #self.parser = parser
 
     def select_tree(self):
-        print self.node_trees[id(self.node_selected)]
         if self.node_trees[id(self.node_selected)] == None:
-            t = self.focus()
+            t, name = self.focus()
             if t == None:
                 return
             self.node_trees[id(self.node_selected)] = t
+            self.node_treename[id(self.node_selected)] = name
+            for subtree in self.node_selected:
+                if id(subtree) in self.node_trees and not self.node_trees[id(subtree)] == None:
+                    print tree_compatible(self.node_selected, subpath)
             self._show_fs_button['text'] = 'Cancel'
             self.tree_selected = False
         else:
             self._show_fs_button['text'] = 'Select'
             self.tree_selected = True
             self.node_trees[id(self.node_selected)] = None
+            self.node_treename[id(self.node_selected)] = None
     
     def draw_parsed_tree(self):
         if self.node_selected == None:
             return
-        print id(self.node_selected)
         if self.node_trees[id(self.node_selected)]:
             self._show_fs_button['text'] = 'Cancel'
             tree = self.node_trees[id(self.node_selected)]
@@ -1704,6 +1706,12 @@ class DependencyGraphView(TAGTreeSetView):
               for entry in data.split('\n\n') if entry]
         self._merge = TreeMerge([graph.tree() for graph in graphs], self)
         self._tset = self._merge.tree()
+        stack = [tree for tree in self._tset]
+        while len(stack) > 0:
+            e = stack.pop()
+            self.node_trees[id(e)] = None
+            if len(e) > 0:
+                stack += [tree for tree in e]
         self.redraw()
 
     def parse(self):
@@ -1911,6 +1919,7 @@ class TAGTree(Tree):
     def __init__(self, node_with_fs, children, attr=None):
         self.attr = attr
         self._lex = False
+        self.comment = None
         if isinstance(node_with_fs, basestring):
             #(self.node, self.top_fs, self.bot_fs) = (node_with_fs, FeatStruct(), FeatStruct())
             self.node = node_with_fs
@@ -1926,6 +1935,9 @@ class TAGTree(Tree):
         if isinstance(children, basestring):
             raise TypeError("%s() argument 2 should be a list, not a "
                             "string" % type(self).__name__)
+
+    def set_comment(self, comment):
+        self.comment = comment
 
     def draw(self):
         """
@@ -2577,8 +2589,6 @@ def parse_from_files(cata, files):
     return tagset
 
 def demo():
-    from util import xtag_parser
-    from util import parse_from_files
 
     cata_str = nltk.data.find('xtag_grammar/english/english.gram').open().read()
     cata = get_catalog(cata_str)
@@ -2603,9 +2613,9 @@ def demo():
 
 
 if __name__ == '__main__':
-    demo()
+    #demo()
     #load()
-    #install()
+    install()
 
 
 """
