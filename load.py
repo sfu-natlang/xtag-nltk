@@ -122,7 +122,7 @@ def add_new_name(s,index):
     token_2 = get_next_token(s,index)
     index = token_2[1]
     if catalog_name.has_key(token_1[0]):
-        raise TypeError("add_new_name: Name already exist")
+        print "WARNING: Name collide - Normal if you have called install() before."
     if token_2[0][0] != '"' or token_2[0][-1] != '"':
         raise TypeError('add_new_name: Value must be wrapped with "')
     else:
