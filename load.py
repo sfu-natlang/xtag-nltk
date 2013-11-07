@@ -10,7 +10,7 @@
 
 from feature import *
 from nltk.featstruct import *
-import test
+import LL1
 
 ###########################################
 # LL Parser for catalog file ##############
@@ -663,6 +663,23 @@ def make_reverse_tree_dict(reverse_trees,tree_list,family_list,entry_list):
     return
 
 def analyze_syntax(s):
+    """
+    A parser for the syntax file. A syntax file is indexed using the <<INDEX>>
+    and the entries are made of several pairs of <<ENTRY>> and <<POS>>. Also
+    we may have <<TREES>> and <<FAMILY>> in the syntax to specify the tree name
+    or family name for that word. And finally, the <<FEATURES>> will give us
+    some features about the word.
+
+    Update: now we can also do tree-to-word searching, i.e. given a tree name or
+    a family name, the dictionary can return a list of words which is applicable
+    to the trees or tree families.
+    
+    :param s: A string read from the syntax file
+    :type s: str
+
+    :return: Two dictionaries enabling both word-to-trees and tree-to-words search
+    :rtype: tuple(dict,dict)
+    """
     # This function returns a dictionary, the index is exactly the <<INDEX>>
     # entry in the syntax file. Each keyword will fetch a list, the element of
     # which is just the lines with the same <<INDEX>>. Each list has four components
@@ -853,8 +870,8 @@ def analyze_tree_1(s):
                 # None is a placeholder for those added in later phases
                 xtag_trees.append([None,None,single_tree.strip(),option.strip(),None,None])
     ############### Temporal Patch ##################
-    trees = test.analyze_tree_file(s)
-    for i in range(0,trees):
+    trees = LL1.analyze_tree_file(s)
+    for i in range(0,len(trees)):
         xtag_trees[i][5] = trees[i][0][1]
         
     return xtag_trees
