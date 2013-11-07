@@ -1610,10 +1610,10 @@ def str_to_widget(fstr, c, highlight=False):
     if fstr[-4:] == ']<h>':
         fstr = fstr[:-3]
     fstr = fstr.replace("<h><h>", "<h>")
-    fstr = fstr.replace("<h>><h>", ">")
-    fstr = fstr.replace("<h>-<h>>", "->")
     wl = []
+    fstr = fstr.replace("<h>><h>", ">")
     l = find_left_bracket(fstr)
+    fstr = fstr.replace("<h>-<h>>", "->")
     if l:
         r = match_bracket(fstr)
         lw = str_to_widget(fstr[l+1:r], c, highlight)
