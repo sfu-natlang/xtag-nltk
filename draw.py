@@ -13,7 +13,6 @@ import copy
 from util import *
 from Tkinter import *
 from parse import *
-from util import *
 
 class LexView(object):
     """
@@ -39,17 +38,15 @@ class LexView(object):
         self._e = Entry(self.frame, textvariable=v)
         self._e.bind("<Return>", self.return_pressed)
         all_button = Button(self.frame, text='Show All', command=self.show_all)
-        button = Button(self.frame, text="Search", command=self.search)
+        button = Button(self.frame, text="Search", command=self.lex_search)
         self._e.pack(expand=1, fill='both', side=LEFT)
 
         self.phrases = StringVar()
         self.phrases.set("")
-        update_button = Button(self.frame, text="Select", command=self.update_word)
+        update_button = Button(self.frame, text="Select", command=self.update_lex_tree)
         self._w = OptionMenu(self.frame, self.phrases, [])
         update_button.pack(side=RIGHT)
         self._w.pack(side=RIGHT)
-        #self._w.bind('<<MenuSelect>>', self.update_word)
-        #self._w['menu'].entryconfigure(command=self.update_word)
         wl = Label(self.frame, text='Anchors:')
         wl.pack(side=RIGHT)
         
@@ -65,7 +62,10 @@ class LexView(object):
         self._count = {}
 
     def display(self, event=None):
-        #self._treeview.display()
+        """
+        Display the tag tree on the canvas when the tree
+        is selected.
+        """
         node = self._treeview._tagview.focus()
         path = self._treeview._tagview.set(node, "fullpath").split('/')
         tree = self._treeview._trees
@@ -82,7 +82,12 @@ class LexView(object):
 
         if not isinstance(tree, type(self._treeview._trees)):
             words = tree_to_words(subpath)
-            self.update_option(words)
+            if len(words) > 0:
+                self.update_anchor(words)
+            if tree.start_feat:
+                self._treeview._sfs_button['text'] = 'Delete Start Features'
+            else:
+                self._treeview._sfs_button['text'] = 'Add Start Features'
             if tree._lex:
                 tree.lexicalize()
                 tree._lex = False
@@ -101,10 +106,16 @@ class LexView(object):
                 treename = subpath
 
             words = tree_to_words(treename)
-            self.update_option(words)
+            if len(words) > 0:
+                self.update_anchor(words)
 
-    def update_option(self, words):
-        self.clean_option()
+    def update_anchor(self, words):
+        """
+        Update anchors with selected words
+        :param: selected words
+        :type: basestring
+        """
+        self.clean_anchor()
         for choice in words:
             phrase = ''
             for term in choice:
@@ -116,11 +127,17 @@ class LexView(object):
             import Tkinter as tk
             self._w['menu'].add_command(label=phrase, command=tk._setit(self.phrases, phrase))
 
-    def clean_option(self):
+    def clean_anchor(self):
+        """
+        Clean anchors of this viewer
+        """
         self._dicword = {}
         self._w['menu'].delete(0, 'end')        
 
-    def update_word(self):
+    def update_lex_tree(self):
+        """
+        Update the viewer with selected words
+        """
         words = self.phrases.get().split()
         if len(words) == 0:
             return
@@ -130,33 +147,32 @@ class LexView(object):
             self._tagset[word] = TAGTreeSet()
             fset = self._tagset[word]
             lex_list = word_to_features(word)
-            self._lex_tag_set(lex_list, fset)
-            print word
+            self.lexicalize_tagset(lex_list, fset)
             for morph in lex_list:
-                print morph[0], len(morph[0])
                 if len(morph[0]) > 1:
                     phrases = [v[0] for v in morph[0]]
                     if phrases == words:
                         index = ''
-                        print phrases
-                        print morph
                         for i in phrases:
                             index = index + i + ' '
                         if not index in self._tagset:
                             self._tagset[index] = TAGTreeSet()
                         fset = self._tagset[index]
-                        self._lex_tag_set([morph], fset)
+                        self.lexicalize_tagset([morph], fset)
         self._tagset.set_start_fs(self._alltrees.start_fs)
         self._treeview.update(self._tagset)
         self._count = {}
 
     def return_pressed(self, event):
-        self.clean_option()
+        """
+        Short-cut for pressing return to show feature structures
+        """
+        self.clean_anchor()
         words = self._e.get().split()
         if len(words) == 0:
             self.show_all()
             return
-        self.search()
+        self.lex_search()
 
     def resize(self, *e):
         """
@@ -168,101 +184,51 @@ class LexView(object):
         """
         Show all the TAG Tree in window
         """
-        self.clean_option()
+        self.clean_anchor()
         self._e.delete(0, END)
         self._tagset = self._alltrees
         self._treeview.clear()
         self._treeview.update(self._tagset)
         return
     
-    def search(self):
+    def lex_search(self):
+        """
+        Update the viewer after lexicalization
+        """
         words = self._e.get().split()
         if len(words) == 0:
-        #    self.show_all()
             return
-        self.clean_option()
+        self.clean_anchor()
         self._tagset = TAGTreeSet()
         self._treeview.clear()
         for word in words:
             self._tagset[word] = TAGTreeSet()
             fset = self._tagset[word]
             lex_list = word_to_features(word)
-            print lex_list
-            self._lex_tag_set(lex_list, fset)
-            '''
-            for morph in lex_list:
-                #print morph
-                index = ''
-                for i in morph[0]:
-                    index = index + i[0] + '.' + i[1] + ' '
-                if index not in fset:
-                    fset[index] = TAGTreeSet()
-                sset = fset[index]
-                if len(morph[2]) > 0:
-                    for tf in morph[2]:
-                        ckey = index+tf
-                        tf = self._tree_family_key(tf)
-                        if tf not in sset:
-                            key = tf
-                            self._count[ckey] = 0
-                        else:
-                            key = tf[:-5] + '_' + str(self._count[ckey]) + '.trees'
-                        sset[key] = TAGTreeSet()
-                        index = None
-                        for sub in self._alltrees:
-                            if tf in self._alltrees[sub]:
-                                index = sub
-                        if not index:
-                            raise NameError('No tree fmaily')
-                        sset[key] += self._alltrees[index][tf].copy(False)
-                        for t in sset[key]:
-                            if sset[key][t]._lex:
-                                sset[key][t]._lex_fs
-                            sset[key][t].init_lex(morph[0], morph[3], morph[4])
-                        self._count[ckey] += 1
-                else:
-                    for t in morph[1]:
-                        ckey = index+t
-                        if t not in sset:
-                            key = t
-                            self._count[ckey] = 0
-                        else:
-                            key = t + '_' + str(self._count[ckey])
-                        for sub in self._alltrees:
-                            for tr in self._alltrees[sub]:
-                                if t in self._alltrees[sub][tr]:
-                                    sset[key] = self._alltrees[sub][tr][t].copy(True)
-                        self._count[ckey] += 1
-                        if not isinstance(sset[key], TAGTree):
-                            raise TypeError('Not TAGTree')
-                        sset[key].init_lex(morph[0], morph[3], morph[4])
-                if len(morph[0]) > 1:
-                    phrases = [v[0] for v in morph[0]]
-                    if all(phrase in words for phrase in phrases):
-                        index = ''
-                        for i in phrases:
-                            index = index + i + ' '
-                        fset = self._tagset[index]
-                '''
+            self.lexicalize_tagset(lex_list, fset)
             for morph in lex_list:
                 if len(morph[0]) > 1:
                     phrases = [v[0] for v in morph[0]]
-                    #print phrases
-                    #print words == phrases
                     if words == phrases:
-                    #if all(phrase in words for phrase in phrases):
                         index = ''
                         for i in phrases:
                             index = index + i + ' '
                         if not isinstance(self._tagset[index], TAGTreeSet):
                             self._tagset[index] = TAGTreeSet()
                         fset = self._tagset[index]
-                        self._lex_tag_set([morph], fset)
+                        self.lexicalize_tagset([morph], fset)
         self._tagset.set_start_fs(self._alltrees.start_fs)
         self._treeview.update(self._tagset)
         self._count = {}
 
-    def _lex_tag_set(self, lex_list, fset):
+    def lexicalize_tagset(self, lex_list, fset):
+        """
+        Lexicalize all TAG tree set
+        :param lex_list: a list of lexicalized node
+        :type: list
+        :alltrees: TAG tree set to be lexicalized
+        :type: TAGTreeSet
+        """
         for morph in lex_list:
             index = ''
             for i in morph[0]:
@@ -276,7 +242,7 @@ class LexView(object):
             if len(morph[2]) > 0:
                 for tf in morph[2]:
                     ckey = index+tf
-                    tf = self._tree_family_key(tf)
+                    tf = tf + '.trees'
                     if tf not in sset:
                         key = tf
                         self._count[ckey] = 0
@@ -321,16 +287,10 @@ class LexView(object):
         if in_idle(): return
         self._top.mainloop(*args, **kwargs)
 
-    def _tree_family_key(self, tree):
-        return tree + '.trees'
-
 
 def demo():
     t = load()
     viewer = LexView(t)
-    faef = word_to_features('forgot')
-    for i in faef:
-        print i
     viewer.mainloop()
 
 if __name__ == '__main__':
