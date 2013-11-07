@@ -8,7 +8,7 @@
 #
 
 
-
+from LL1 import jump_over_space
 from nltk.featstruct import FeatStruct
 import re
 import copy
@@ -366,6 +366,151 @@ def merge_fs(fs1,fs2):
         else:
             fs1[k] = fs2[k]
     return
+
+##############################
+# Parse Feature ##############
+##############################
+
+def check_symbol(s,next_index,symbol):
+    """
+    Check whether we have got a defined symbol in the grammar. Return False if
+    not, or return the next_index after this symbol.
+
+    :param s: The string need to be checked
+    :type s: str
+    :param next_index: Index on the string
+    :type next_index: integer
+    :param symbol: The symbol to be checked against
+    :type symbol: str
+    """
+    try:
+        next_index = jump_over_space(s,next_index)
+        if s[next_index:next_index + len(symbol)] == symbol:
+            return next_index + len(symbol) # We must ignore the symbol
+    except IndexError:
+        return False
+    else:
+        return False
+
+def parse_feature_node(s,next_index=0):
+    next_index = jump_over_space(s,next_index)
+    start_index = next_index
+    while True:
+        # Alnum and '-' are both legal characters inside a node
+        ch = s[next_index]
+        if ch.isalnum() or ch == '-' or ch == '_':
+            next_index += 1
+        else:
+            break
+    feature_node = s[start_index:next_index]
+    if feature_node == '':
+        feature_node = None
+    return (feature_node,next_index)
+
+def parse_feature_value(s,next_index=0):
+    """
+    Parse the value of a feature entry. The value can be a plain text string
+    without any space or new line, or it can be several sub values separated
+    by '/'. In both case the function will return a list containing each sub
+    strings.
+
+    :param s: The string to be parsed
+    :type s: str
+    :return: A tuple containing the value as well as next_index
+    :rtype: tuple(list(str),integer)
+    """
+    next_index = jump_over_space(s,next_index)
+    start_index = next_index
+    while True:
+        if not s[next_index].isspace():
+            next_index += 1
+        else:
+            break
+    feature_value = s[start_index:next_index]
+    if feature_value == '':
+        feature_value = None
+    feature_value = feature_value.split('/')
+    return (feature_value,next_index)
+
+def parse_feature_path(s,next_index=0):
+    path = []
+    next_index = check_symbol(s,next_index,'<') # Already changed index here
+    
+    if next_index == False:
+        raise ValueError('Path must start with a "<"')
+    while True:
+        node_name,next_index = parse_feature_node(s,next_index)
+        if node_name == None:
+            break
+        else:
+            path.append(node_name)
+
+    next_index = check_symbol(s,next_index,'>')
+    if next_index == False:
+        raise ValueError('Path must end with a ">"')
+    return (path,next_index)
+
+def parse_feature_lhs(s,next_index=0):
+    path = []
+    node_1,temp_index = parse_feature_node(s,next_index)
+    if node_1 == None:
+        return parse_feature_path(s,next_index)
+    else:
+        path.append(node_1)
+        next_index = check_symbol(s,temp_index,'.')
+        if next_index == False:
+            return None, None   # next_index should not be used
+        node_2,next_index = parse_feature_node(s,next_index)
+        path.append(node_2)
+        next_index = check_symbol(s,next_index,':')
+        if next_index == False:
+            return None, None   # Same as avove
+        sub_path,next_index = parse_feature_path(s,next_index)
+        path += sub_path
+        return path,next_index
+
+def parse_feature_rhs(s,next_index=0):
+    path,temp_index = parse_feature_lhs(s,next_index)
+    if path == None:
+        val,next_index = parse_feature_value(s,next_index)
+        return (('val',val),next_index)
+    else:
+        next_index = temp_index   # If it succeeded
+        return (('ref',path),next_index)
+
+def parse_feature_line(s,next_index=0):
+    lhs,next_index = parse_feature_lhs(s,next_index)
+    next_index = check_symbol(s,next_index,'=')
+    if next_index == False:
+        raise ValueError('"=" expected after LHS')
+    rhs,next_index = parse_feature_rhs(s,next_index)
+    return((lhs,rhs),next_index)
+
+def parse_feature(s):
+    """
+    Parse a string into a feature structure. The string is defined like this:
+
+    top -> line*
+    line -> lhs = rhs
+    lhs -> node.node:path
+    lhs -> path
+    path -> <node ( node)*>
+    node -> [string with only alpha and number]
+    rhs -> value
+    rhs -> lhs
+    value = [string with no space]
+    """
+    features = []
+    lines = s.splitlines()
+    for l in lines:
+        if l == '':
+            continue
+        else:
+            # In order to make it halt at the end of the string
+            features.append(parse_feature_line(l + ' '))
+            print parse_feature_line(l + ' ')
+    return ('top',features)
+            
 
 def parse_feature_in_catalog(s):
     # This function parses the string in catalog file, i.e. english.gram
@@ -943,9 +1088,21 @@ def debug_test_contain():
     fs101['__or_123'] = '123'
     fs101['__or_wzq'] = 'wzq'
     print test_contain(fs100,fs101)
-    
+
+def debug_parse_feature():
+    temp = parse_feature("""S_r.b:<mode> = VP.t:<mode>
+S_r.t:<mode> = ind/inf
+S_r.b:<comp> = nil
+S_r.b:<tense> = VP.t:<tense>
+S_r.t:<inv> = -
+NP_r.b:<wh> = NP_f.t:<wh>
+NP_r.b:<agr> = NP_f.t:<agr>
+NP_r.b:<case> = NP_f.t:<case>
+S_r.b:<agr> = VP.t:<agr>
+S_r.b:<assign-case> = VP.t:<assign-case>""")
 
 if __name__ == '__main__':
-    debug_special_unify()
+    #debug_special_unify()
     #debug_test_contain()
+    debug_parse_feature()
                     
