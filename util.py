@@ -518,8 +518,6 @@ class TAGTreeSetView(object):
                              % type(self).__name__)
         if isinstance(tree, type(self._trees)):
             return
-        print self.sfs_tree
-        print tree, id(tree)
         if not tree.start_feat:
             self._sfs_button['text'] = 'Delete Start Features'
             self.add_start_fs(tree, self._trees.start_fs)
@@ -613,6 +611,10 @@ class TAGTreeSetView(object):
                              % type(self).__name__)
 
         if not isinstance(tree, type(self._trees)):
+            if tree.start_feat:
+                self._sfs_button['text'] = 'Delete Start Features'
+            else:
+                self._sfs_button['text'] = 'Add Start Features'
             if tree._lex:
                 tree.lexicalize()
                 tree._lex = False
