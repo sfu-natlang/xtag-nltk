@@ -745,6 +745,19 @@ def analyze_syntax(s):
     return (tokens,reverse_trees)
 
 def analyze_template(s):
+    """
+    Make feature structure templates using the lines in the template file. There
+    are two kinds of templates, one of them is started by a @ mark, which is used
+    in the morph file, and another type is started with a # mark, which is used
+    in the syntax file. When we are constructing trees with a particular anchor,
+    the code will search the templates of features and combine them with the xtag
+    tree.
+
+    :param s: A string read from the template file
+    :type s: str
+    :return: A pair of dictionaries, one for morph and another for syntax
+    :rtype: tuple(dict,dict)
+    """
     # The return value of this function is a tuple. The first element of the tuple is a dictionary
     # using identifiers from morph.flat, and the entries are feature structures
     # with proper values set. The second element is a dictionary using keys from
@@ -1137,10 +1150,23 @@ def analyze_tree_5(xtag_trees):
 # Word and feature conversion ########
 ######################################
 
-dicts = None
-inited = False
+dicts = None    # Morph, Syntax, and Template
+inited = False  # Once initialized this will be True until next start
 
 def check_pos_equality(morph_pos,syntax_pos):
+    """
+    Check whether two POS tags from morph and syntax respectively are equal.
+
+    We have a mapping relation file recording all possible mappings from the
+    tags in the syntax to the names in the morph.
+
+    :param morph_pos: The pos tag in morph
+    :type morph_pos: str
+    :param syntax_pos: The pos tag in syntax
+    :type morph_pos: str
+    :return: True if they are equivalent, False if not
+    :rtype: bool
+    """
     if morph_pos == syntax_pos:  # Check literal equality first
         return True
     elif dicts[4].has_key(syntax_pos): # Then check mapping equality
