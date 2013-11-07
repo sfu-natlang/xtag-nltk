@@ -10,6 +10,8 @@ import ttk
 import os
 import re
 import copy
+import nltk.data
+import pickle
 
 from nltk.tree import *
 from nltk.featstruct import FeatStruct
@@ -24,9 +26,6 @@ from nltk.draw.util import *
 from nltk.tokenize import word_tokenize
 from collections import defaultdict
 from nltk.parse.dependencygraph import *
-import time
-import nltk.data
-import pickle
 
 def dump_to_disk(filename,obj):
     """
@@ -72,7 +71,7 @@ def update():
         d = 'xtag_grammar/'+language
         p = os.path.join(path_item, *d.split('/'))
         if os.path.exists(p):
-            t = init_tree()
+            t = init_trees()
             pic_dir = os.path.join(p, 'pickles')
             if not os.path.exists(pic_dir):
                 os.makedirs(pic_dir)
@@ -80,14 +79,15 @@ def update():
             dump_to_disk(tree_dir, t)
             return
 
-def init_tree():
+def init_trees():
     """
     Initialize the TAG tree Forests from tree files in xtag_grammar/grammar/
     :return: The forest of all TAG trees
     :rype: TAGTreeSet
     """
     language = 'english'
-    cata_str = nltk.data.find('xtag_grammar/'+language+'/english.gram').open().read()
+    cata_dir = 'xtag_grammar/'+language+'/english.gram'
+    cata_str = nltk.data.find(cata_dir).open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
     t = parse_from_files(cata, 'tree-files')
@@ -95,31 +95,34 @@ def init_tree():
     t.set_start_fs(sfs)
     return t
 
-
 def load():
     """
-    Load the forest pickle to initilize the TAG forest, load the morphology files, lexicon
-    files, template files, syntax files and mapping file
+    Load the forest pickle to initilize the TAG forest, load the morphology
+    files, lexicon files, template files, syntax files and mapping file
     :return: The forest of all TAG trees
     :rype: TAGTreeSet
     """
+    xtag_dir = 'xtag_grammar'
     language = 'english'
-    cata_str = nltk.data.find('xtag_grammar/'+language+'/english.gram').open().read()
+    cata_dir = 'xtag_grammar/'+language+'/english.gram'
+    pickle_dir = 'xtag_grammar/'+language+'/pickles/tagtreeset.pickle'
+    cata_str = nltk.data.find(cata_dir).open().read()
     
     cata = get_catalog(cata_str)
 
-    treefile = nltk.data.find('xtag_grammar/'+language+'/pickles/tagtreeset.pickle').open()
+    treefile = nltk.data.find(pickle_dir).open()
     treeset = restore_from_disk(treefile)
     morph = get_file_list(cata, 'morphology-files')
     syn = get_file_list(cata, 'lexicon-files')
     temp = get_file_list(cata, 'templates-files')
     default = get_file_list(cata, 'syntax-default')
 
-    morph_path = 'xtag_grammar' + os.sep + language + os.sep + morph[1] + os.sep + morph[0][0]
-    syn_path = 'xtag_grammar' + os.sep + language + os.sep + syn[1] + os.sep + syn[0][0]
-    temp_path = 'xtag_grammar' + os.sep + language + os.sep + temp[1] + os.sep + temp[0][0]
-    default_path = 'xtag_grammar' + os.sep + language + os.sep + default[1] + os.sep + default[0][0]
-    mapping_path = 'xtag_grammar' + os.sep + language + os.sep + 'syntax_morph.mapping'
+
+    morph_path = os.sep.join([xtag_dir, language, morph[1], morph[0][0]])
+    syn_path = os.sep.join([xtag_dir, language, syn[1], syn[0][0]])
+    temp_path = os.sep.join([xtag_dir, language, temp[1], temp[0][0]])
+    default_path = os.sep.join([xtag_dir, language,default[1], default[0][0]])
+    mapping_path = os.sep.join([xtag_dir, language, 'syntax_morph.mapping'])
 
     morph_str = nltk.data.find(morph_path).open().read()
     syn_str = nltk.data.find(syn_path).open().read()
@@ -128,767 +131,8 @@ def load():
     mapping_str = nltk.data.find(mapping_path).open().read()
 
     init(morph_str, syn_str, temp_str, default_str, mapping_str)
+
     return treeset   
-
-class TreeMerge(object):
-    def __init__(self, tree_set, parent):
-        self.trees = []
-        for t in tree_set:
-            self.trees.append(self.str_to_tree(t))
-        self.merge = None
-        self.current = None
-        self._parent = parent
-
-    def str_to_tree(self, tree):
-        if isinstance(tree, basestring):
-            return Tree(tree, [])
-        stack = [tree]
-        while len(stack) > 0:
-            t = stack.pop()
-            for child in t:
-                if isinstance(child, basestring):
-                    index = t.index(child)
-                    t.pop(index)
-                    t.insert(index, Tree(child,[]))
-                else:
-                    stack.append(child)
-        #tree.draw()
-        return tree
-
-    def connect(self, tree):
-        if self.merge == None:
-            self.merge = tree
-        else:
-            top = self.merge.parent()
-            otop = tree.parent()
-            if not isinstance(top.parent(), type(top)):
-                head = top
-                parent = tree
-            elif not isinstance(otop.parent(), type(otop)):
-                head = tree
-                parent = top
-            else:
-                self.merge.reset()
-                #tree.reset()
-                self.merge = tree
-                return
-
-            if self.root(self.merge) != self.root(tree):
-                #if len(parent._tree) == 0:
-                #    parent._tree.append(head._tree)
-                #else:
-                pid = id(parent._tree)
-                hid = id(head._tree)
-                parent._tree.append(head._tree)
-                if head._tree in self.trees:
-                    self.trees.remove(head._tree)
-                self.merge.reset()
-                self.merge = None
-                self._parent._tw.clear()
-                self._parent.redraw()
-            else:
-                self.merge.reset()
-                #tree.reset()
-                self.merge = tree
-
-    def root(self, tree):
-        child = tree.parent()
-        while isinstance(child.parent(), type(child)):
-            child = child.parent()
-        return child
-
-    def tree(self):
-        return self.trees
-
-class GraphSegmentWidget(TreeSegmentWidget):
-    def __init__(self, canvas, node, subtrees, tree, parent, merge, **attribs):
-        TreeSegmentWidget.__init__(self, canvas, node, 
-                                      subtrees, **attribs)
-        #self.bind_click(self._double_click, 1)
-        #self.bind_drag(self.click)
-        self._merge = merge
-        self._canvas = canvas
-        self._select = False
-        self._press = 0
-        self._tree = tree
-        self._anc = parent
-        self.__press = None
-        self.__drag_x = self.__drag_y = 0
-        self.__callbacks = {}
-        self.__draggable = 0
-        for tag in self._tags():
-            self._canvas.tag_bind(tag, '<ButtonPress-1>',
-                                   lambda event, line=tag:self.__press_cb(event, line))
-            #self._canvas.tag_bind(tag, '<ButtonPress-2>',
-            #                       self.__press_cb)
-            #self._canvas.tag_bind(tag, '<ButtonPress-3>',
-            #                       self.__press_cb)
-    
-    def __press_cb(self, event, tag):
-        """
-        Handle a button-press event:
-          - record the button press event in ``self.__press``
-          - register a button-release callback.
-          - if this CanvasWidget or any of its ancestors are
-            draggable, then register the appropriate motion callback.
-        """
-        # If we're already waiting for a button release, then ignore
-        # this new button press.
-        if (self._canvas.bind('<ButtonRelease-1>') or
-            self._canvas.bind('<ButtonRelease-2>') or
-            self._canvas.bind('<ButtonRelease-3>')):
-            return
-
-        # Unbind motion (just in case; this shouldn't be necessary)
-        self._canvas.unbind('<Motion>')
-
-        # Record the button press event.
-        self.__press = event
-
-        # If any ancestor is draggable, set up a motion callback.
-        # (Only if they pressed button number 1)
-        if event.num == 1:
-            widget = self
-            while widget is not None:
-                if widget['draggable']:
-                    widget._start_drag(event)
-                    break
-                widget = widget.parent()
-
-        #self.__callbacks[1] = self._double_click
-        # Set up the button release callback.
-        self._canvas.bind('<ButtonRelease-%d>' % event.num,
-                          lambda event, line=tag:self.__release_cb(event, line))
-
-    def _start_drag(self, event):
-        """
-        Begin dragging this object:
-          - register a motion callback
-          - record the drag coordinates
-        """
-        self._canvas.bind('<Motion>', self.__motion_cb)
-        self.__drag_x = event.x
-        self.__drag_y = event.y
-
-    def __motion_cb(self, event):
-        """
-        Handle a motion event:
-          - move this object to the new location
-          - record the new drag coordinates
-        """
-        self.move(event.x-self.__drag_x, event.y-self.__drag_y)
-        self.__drag_x = event.x
-        self.__drag_y = event.y
-
-    def __release_cb(self, event, tag):
-        """
-        Handle a release callback:
-          - unregister motion & button release callbacks.
-          - decide whether they clicked, dragged, or cancelled
-          - call the appropriate handler.
-        """
-        # Unbind the button release & motion callbacks.
-        self._canvas.unbind('<ButtonRelease-%d>' % event.num)
-        self._canvas.unbind('<Motion>')
-
-        # Is it a click or a drag?
-        if (event.time - self.__press.time < 100 and
-            abs(event.x-self.__press.x) + abs(event.y-self.__press.y) < 5):
-            # Move it back, if we were dragging.
-            if self.__draggable and event.num == 1:
-                self.move(self.__press.x - self.__drag_x,
-                          self.__press.y - self.__drag_y)
-            self.__double_click(self, tag)
-        elif event.num == 1:
-            self.__drag()
-
-        self.__press = None
-
-    def __drag(self):
-        """
-        If this ``CanvasWidget`` has a drag callback, then call it;
-        otherwise, find the closest ancestor with a drag callback, and
-        call it.  If no ancestors have a drag callback, do nothing.
-        """
-        if self.__draggable:
-            if 'drag' in self.__callbacks:
-                cb = self.__callbacks['drag']
-                try:
-                    cb(self)
-                except:
-                    print 'Error in drag callback for %r' % self
-        elif self.__parent is not None:
-            self.__parent.__drag()
-
-
-    #def __double_click(self, treeseg, tag):
-    #    current = time.time()
-    #    if current - self._press < 0.5:
-    #        ind = self._lines.index(tag)
-    #        child = self._subtrees[ind]
-    #        self.remove_child(child)
-    #        child['draggable'] = 1
-
-    #        child.__draggable = 1
-    #    self._press = current
-
-
-    def box_size(self):
-        return self.node().bbox()
-
-class GraphElementWidget(BoxWidget):
-    def __init__(self, canvas, parent, child, text, **attribs):
-        self.box = BoxWidget.__init__(self, canvas, child, **attribs)
-        #self.bind_click(self._double_click, 1)
-        #self.bind_drag(self.click)
-        self._text = text
-        self._select = 0
-        self._press = 0
-        self._subtrees = []
-        self._lines = []
-        self._node = self.box
-        self._tree = None
-        self.bind_click(self.click)
-        self._canvas = canvas
-        self.viewer = parent
-        if not self in self.viewer.elements:
-            self.viewer.elements.append(self)
-        #self._canvas.tag_bind(self._tags(), '<Double-Button-1>', self.double_click)
-
-    def color(self):
-        self['fill'] = 'yellow'
-
-    #def double_click(self):
-    #    parent = self
-    #    parent._merge.connect(parent)
-    #    self['fill'] = 'red'
-
-    def click(self, node):
-        #current = time.time()
-        if self._select == 1:
-            #if self.parent() == None:
-            #    parent = self
-            #else:
-            #    parent = self.parent()
-            parent = self
-            parent._merge.connect(parent)
-            self._select = 2
-            #self.parent()._anc.rollback(self)
-            self['fill'] = 'red'
-            self.viewer.node_selected = None
-        elif self._select == 2:
-            node['fill'] = 'green'
-            self._select = 0
-            self._merge.merge = None
-            self.viewer.node_selected = None
-        else:
-            node['fill'] = 'yellow'
-            if self._merge.current != None:
-                self._merge.current.reset()
-            self._merge.current = self
-            self._select = 1
-            self.viewer.compatible(self._text)
-            self.viewer.node_selected = self.parent()._tree
-            self.viewer.draw_parsed_tree()
-        self.viewer._cframe.pack(expand=1, fill='both', side = LEFT)
-
-
-    def set_merge(self, tree):
-        self._merge = tree
-
-    def set_tree(self, tree):
-        self._tree = tree
-
-    def set_leaf(self, tree):
-        if isinstance(tree, basestring):
-            self._tree = Tree(tree, [])
-        else:
-            self._tree = tree
-
-    def reset(self):
-        self._select = 0
-        self['fill'] = 'green'
-
-    def select(self):
-        self._select = 1
-        self['fill'] = 'yellow'
-
-class GraphWidget(TreeWidget):
-    def __init__(self, canvas, t, merge, top, parent, make_node=TextWidget, **attribs):
-
-        self._l = []
-        self._merge = merge        
-        self._parent = parent
-        self.tree_set = merge.tree()
-        self.tw = TreeWidget.__init__(self, canvas, t, make_node,
-                            make_node, **attribs)
-        self._top = top
-        self._xy_map = {}
-        self._make_xy_map()
-
-        self._canvas = canvas
-        self._select = False
-        self._press = 0
-        for leaf in self._l:
-            leaf.set_merge(self._merge)
-
-        for tseg in self._expanded_trees.values():
-            tseg.node().set_merge(self._merge)
-
-        self.__press = None
-        self.__drag_x = self.__drag_y = 0
-        self.__callbacks = {}
-        self.__draggable = 1
-        self['draggable'] = 1
-
-        self.init_tags()
-
-    def _init_menubar(self):
-        pass
-
-    def init_tags(self):
-        self._ltconnect = defaultdict(list)
-        self._line_tags = defaultdict(list)
-        self._tree_tseg = defaultdict(list)
-        self._element_tags = {}
-
-        for tseg in self._expanded_trees.values():
-            self._ltconnect[tseg] += tseg._subtrees
-            self._line_tags[tseg] += tseg._tags()
-        
-        """
-        for tseg in self._expanded_trees.values():
-            self._element_tags[tseg] = tseg.node().child()._tags()
-        for leaf in self._l:
-            self._element_tags[leaf] = leaf.child()._tags()
-        """
-
-        for i in self._line_tags:
-            for tag in self._line_tags[i]:
-                self._canvas.tag_bind(tag, '<ButtonPress-1>',
-                                       lambda event, line=tag:self.__press_cb(event, line))
-
-        for i in self._element_tags:
-            for tag in  self._element_tags[i]:
-                self._canvas.tag_bind(tag, '<ButtonPress-1>',
-                                       lambda event, line=tag:self.__press_cb(event, line))
-
-            #self._canvas.tag_bind(tag, '<ButtonPress-2>',
-            #                       self.__press_cb)
-            #self._canvas.tag_bind(tag, '<ButtonPress-3>',
-            #                       self.__press_cb)
-    """
-    def merge(self, tree):
-        if len(merge) > 0:
-            oldtree = merge.pop()
-            parent = oldtree
-            child = tree
-            parent._add_child_widget(child)
-            parent._lines.append(self.canvas().create_line(0,0,0,0, fill='#006060'))
-            parent.update(parent._node)
-            parent.insert_child(0, child)
-        else:
-            merge.append(tree)
-    """
-
-    def __press_cb(self, event, tag):
-        """
-        Handle a button-press event:
-          - record the button press event in ``self.__press``
-          - register a button-release callback.
-          - if this CanvasWidget or any of its ancestors are
-            draggable, then register the appropriate motion callback.
-        """
-        # If we're already waiting for a button release, then ignore
-        # this new button press.
-        if (self._canvas.bind('<ButtonRelease-1>') or
-            self._canvas.bind('<ButtonRelease-2>') or
-            self._canvas.bind('<ButtonRelease-3>')):
-            return
-
-        # Unbind motion (just in case; this shouldn't be necessary)
-        self._canvas.unbind('<Motion>')
-
-        # Record the button press event.
-        self.__press = event
-
-        # If any ancestor is draggable, set up a motion callback.
-        # (Only if they pressed button number 1)
-        if event.num == 1:
-            widget = self
-            while widget is not None:
-                if widget['draggable']:
-                    widget._start_drag(event)
-                    break
-                widget = widget.parent()
-
-        #self.__callbacks[1] = self._double_click
-        # Set up the button release callback.
-        self._canvas.bind('<ButtonRelease-%d>' % event.num,
-                          lambda event, line=tag:self.__release_cb(event, line))
-
-    def _start_drag(self, event):
-        """
-        Begin dragging this object:
-          - register a motion callback
-          - record the drag coordinates
-        """
-        self._canvas.bind('<Motion>', self.__motion_cb)
-        self.__drag_x = event.x
-        self.__drag_y = event.y
-        x = self.canvas().canvasx(event.x)
-        y = self.canvas().canvasy(event.y)
-        #for tseg in self._xy_map:
-        #    if x > self._xy_map[tseg][0] and x < self._xy_map[tseg][2]:
-        #        if y > self._xy_map[tseg][1] and x < self._xy_map[tseg][3]:
-        #            print tseg
-        #print x, y
-        #print event.x, event.y
-        #for i in self._xy_map:
-        #    print i, self._xy_map[i]
-
-    def __motion_cb(self, event):
-        """
-        Handle a motion event:
-          - move this object to the new location
-          - record the new drag coordinates
-        """
-        self.move(event.x-self.__drag_x, event.y-self.__drag_y)
-        self.__drag_x = event.x
-        self.__drag_y = event.y
-
-    def __release_cb(self, event, tag):
-        """
-        Handle a release callback:
-          - unregister motion & button release callbacks.
-          - decide whether they clicked, dragged, or cancelled
-          - call the appropriate handler.
-        """
-        # Unbind the button release & motion callbacks.
-        self._canvas.unbind('<ButtonRelease-%d>' % event.num)
-        self._canvas.unbind('<Motion>')
-
-        # Is it a click or a drag?
-        if (event.time - self.__press.time < 100 and
-            abs(event.x-self.__press.x) + abs(event.y-self.__press.y) < 5):
-            # Move it back, if we were dragging.
-            if self.__draggable and event.num == 1:
-                self.move(self.__press.x - self.__drag_x,
-                          self.__press.y - self.__drag_y)
-            self.__double_click(self, tag)
-        elif event.num == 1:
-            self.__drag()
-
-        self.__press = None
-
-    def __drag(self):
-        """
-        If this ``CanvasWidget`` has a drag callback, then call it;
-        otherwise, find the closest ancestor with a drag callback, and
-        call it.  If no ancestors have a drag callback, do nothing.
-        """
-        if self.__draggable:
-            if 'drag' in self.__callbacks:
-                cb = self.__callbacks['drag']
-                try:
-                    cb(self)
-                except:
-                    print 'Error in drag callback for %r' % self
-        #elif self.__parent is not None:
-        #    self.__parent.__drag()
-
-    def __double_click(self, treeseg, tag):
-        #import random
-        current = time.time()
-        if current - self._press < 0.5:
-            for i in self._line_tags:
-                for j in range(0, len(self._line_tags[i])):
-                    if tag == self._line_tags[i][j]:
-                        parent = i
-                        child = self._ltconnect[i].pop(j)
-                        for k in range(0, len(parent._tree)):
-                            if isinstance(parent._tree[k], basestring):
-                                if len(child._tree) == 0 and parent._tree[k] == child._tree.node:
-                                    pid = id(parent._tree)
-                                    cw = child
-                                    pw = parent
-                                    parent._tree.pop(k)
-                                    break
-                            elif parent._tree[k] == child._tree:
-                                pid = id(parent._tree)
-                                cw = child
-                                pw = parent
-                                parent._tree.pop(k)
-                                break
-                        if isinstance(child._tree, basestring):
-                            child._tree = Tree(child._tree, [])
-                        #print self._tree_tseg[child._tree]
-                        #print self._tree_tseg[parent._tree]
-                        #widget = self.parent.tree_widget[pid]._treeseg
-                        #print child._tree.parent()
-
-                        self.tree_set.append(child._tree)
-                        self._parent._merge.merge = None
-                        self._parent._merge.current = None
-                        self._parent.redraw()
-                        self._parent._tw.clear()
-                        #parent.remove_child(child)
-                        child['draggable'] = 1
-                        #child.__parent = parent.parent()
-        self._press = current
-
-    """
-    def _tags(self):
-        tags = []
-        for tseg in self._expanded_trees.values():
-            tags += tseg._tags()
-            tags += tseg.node()._tags()
-            tags += tseg.node().child()._tags()
-        for leaf in self._l:
-            tags += leaf._tags()
-            tags += leaf.child()._tags()
-        return tags
-    """
-    def _make_xy_map(self):
-        #for tseg in self._expanded_trees.values():
-        #    self._xy_map[tseg] = tseg.box_size()
-        #for leaf in self._l:
-        #    self._xy_map[leaf] = leaf.bbox()
-        for tseg in self._expanded_trees.values():
-            self._xy_map[tseg] = self.canvas().coords(tseg.node()._tags()[0])
-        for leaf in self._l:
-            self._xy_map[leaf] = leaf.bbox()
-
-    def _make_expanded_tree(self, canvas, t, key):
-        make_node = self._make_node
-        make_leaf = self._make_leaf
-
-        if isinstance(t, Tree):
-            node = make_node(canvas, t.node, **self._nodeattribs)
-            node.set_tree(t)
-            self._nodes.append(node)
-            children = t
-            subtrees = [self._make_expanded_tree(canvas, children[i], key+(i,))
-                        for i in range(len(children))]
-            treeseg = GraphSegmentWidget(canvas, node, subtrees, t, self._parent, self._merge, 
-                                        color=self._line_color,
-                                        width=self._line_width)
-            self._expanded_trees[key] = treeseg
-            self._keys[treeseg] = key
-            return treeseg
-        else:
-            leaf = make_leaf(canvas, t, **self._leafattribs)
-            leaf.set_leaf(t)
-            self._leaves.append(leaf)
-            self._l.append(leaf)
-            return leaf
-
-    def _make_collapsed_trees(self, canvas, t, key):
-        if not isinstance(t, Tree): return
-        make_node = self._make_node
-        make_leaf = self._make_leaf
-
-        node = make_node(canvas, t.node, **self._nodeattribs)
-        node.set_tree(t)
-        self._nodes.append(node)
-        leaves = [make_leaf(canvas, l, **self._leafattribs)
-                  for l in t.leaves()]
-        for i in range(0, len(leaves)):
-            leaves[i].set_leaf(t.leaves()[i])
-        self._leaves += leaves
-        treeseg = GraphSegmentWidget(canvas, node, leaves, t, self._parent, self._merge, 
-                                    roof=1, color=self._roof_color,
-                                    fill=self._roof_fill,
-                                    width=self._line_width)
-
-        self._collapsed_trees[key] = treeseg
-        self._keys[treeseg] = key
-        #self._add_child_widget(treeseg)
-        treeseg.hide()
-
-        # Build trees for children.
-        for i in range(len(t)):
-            child = t[i]
-            self._make_collapsed_trees(canvas, child, key + (i,))    
-
-class CommentWidget(StackWidget):
-    def __init__(self, canvas, parent, **attribs):
-        self.canvas = canvas
-        self.attribs = attribs
-        self.viewer = parent
-        self.tri = TextWidget(canvas, u'\u25b6'.encode('utf-8') + '    COMMENTS')
-        self.tri.bind_click(self.collapse)
-        self.show = False
-        #comment = TextWidget(canvas, )
-        self.stack = StackWidget(canvas, self.tri, **attribs)
-
-    def widget(self):
-        return self.stack
-
-    def collapse(self, event):
-        if self.show:
-            self.viewer._cframe.destroy_widget(self.stack)
-            self.tri = TextWidget(self.canvas, u'\u25b6'.encode('utf-8') + '    COMMENTS')
-            self.tri.bind_click(self.collapse)
-            #comment = TextWidget(self.canvas, 'TEST')
-            self.stack = StackWidget(self.canvas, self.tri, **self.attribs)
-        else:
-            self.viewer._cframe.destroy_widget(self.stack)
-            self.tri = TextWidget(self.canvas, u'\u25bc'.encode('utf-8') + '    COMMENTS')
-            self.tri.bind_click(self.collapse)
-            print self.viewer._trees
-            comment = TextWidget(self.canvas, self.viewer._trees[0].comment, width=260)
-            hspace1 = SpaceWidget(self.canvas, 300, 0)
-            hspace2 = SpaceWidget(self.canvas, 300, 0)              
-            tstack = StackWidget(self.canvas, hspace1, comment, hspace2)
-            box = BoxWidget(self.canvas, tstack)
-            self.stack = StackWidget(self.canvas, self.tri, box, align='left')
-        self.show = not self.show
-
-            #self.insert_child(0, comment)
-        self.viewer.collapse_comment()
-
-class TAGTreeWidget(TreeWidget):
-    """
-    A canvas widget that displays a single TAG Tree, inherit from 
-    ``TreeWidget``. ``TAGTreeWidget`` manages a group of ``TreeSegmentWidgets``
-    that are used to display a TAG Tree. The each TAG Tree node
-    contains a top feature structure and a bottom feature structure.
-    The feature structures can be set to display or hidden on the canvas.
-
-    Attributes:
-
-      - ``keep``: Display the feature structures which match the
-        input regular expression.
-        node widgets for this ``TreeWidget``.
-      - ``remove``: Remove the feature structures which match the
-        input regular expression from the canvas.
-      - ``highlight``: Highlight the feature structures which match 
-        the input regular expression.
-      - ``reg``: The input regular expression for keep, remove or
-        highlight.
-
-    """
-    def __init__(self, canvas, t, fs, show, parent, make_node=TextWidget,
-                 make_leaf=TextWidget, **attribs):
-        self._all_fs = fs
-        self._show_fs = show
-        self._attr = {}
-        # Attributes.
-        for (i, j) in attribs.items():
-            if i in ['keep', 'remove', 'highlight', 'reg']:
-                self._attr[i] = j
-                del attribs[i]
-        TreeWidget.__init__(self, canvas, t, make_node,
-                            make_leaf, **attribs)   
-        self._top = parent
-
-    def _make_expanded_tree(self, canvas, t, key):        
-        make_node = self._make_node
-        make_leaf = self._make_leaf
-
-        if isinstance(t, TAGTree):
-            node_name = self.get_node_name(t)
-            bold = ('helvetica', -24, 'bold')
-            node = make_node(canvas, node_name, font=bold,
-                                color='#004080')
-
-            if self._show_fs:
-                top_fs = fs_widget(t.top_fs, self._all_fs, canvas, 
-                                   _fs_name(node_name, True), **self._attr)
-                bot_fs = fs_widget(t.bot_fs, self._all_fs, canvas,
-                                   _fs_name(node_name, False), **self._attr)
-                cstack = StackWidget(canvas, top_fs, bot_fs, align='left')
-                node =  SequenceWidget(canvas, node, cstack, align='top')
-
-            self._nodes.append(node)
-            children = t
-            subtrees = [self._make_expanded_tree(canvas, children[i], key+(i,))
-                        for i in range(len(children))]
-            top_name = _fs_name(t.node, True)
-            bot_name = _fs_name(t.node, False)
-            top_fs = FeatStruct()
-            bot_fs = FeatStruct()
-            if top_name in self._all_fs:
-                top_fs = self._all_fs[top_name]
-            if bot_name in self._all_fs:
-                bot_fs = self._all_fs[bot_name]
-            #treeseg = TAGTreeSegmentWidget(canvas, node, subtrees, 
-            #                            top_fs, bot_fs,
-            #                            color=self._line_color,
-            #                            width=self._line_width)
-            treeseg = TreeSegmentWidget(canvas, node, subtrees, 
-                                        color=self._line_color,
-                                        width=self._line_width)
-            self._expanded_trees[key] = treeseg
-            self._keys[treeseg] = key
-
-            return treeseg
-        else:
-            leaf = make_leaf(canvas, t, **self._leafattribs)
-            self._leaves.append(leaf)
-            return leaf
-
-    def get_node_name(self, t):    
-        """
-        Get the name of the current node, use specific symbols
-        for substitution node, head node and foot node.
-        :param t: Current node
-        :type t: TAGTree
-        :return: Node name
-        :rtype: str
-        """    
-        if t.attr == 'subst':
-            return t.node + u'\u2193'.encode('utf-8')
-        elif t.attr == 'head':
-            return t.node + u'\u25c7'.encode('utf-8')
-        elif t.attr == 'foot':
-            return t.node + u'\u2605'.encode('utf-8')
-        elif t.attr == None:
-            return t.node
-        elif t.attr == 'lex':
-            return t.node
-        else:
-            raise TypeError("%s: Expected an attribute with value"
-                            "subst, head or foot ")
-
-    #def toggle_collapsed(self, treeseg):        
-    #    self.show_fs(treeseg)
-
-    """
-    def show_fs(self, treeseg):
-        def fill(cw):
-            from random import randint
-            cw['fill'] = '#00%04d' % randint(0,9999)
-        def color(cw):
-            from random import randint
-            cw['color'] = '#ff%04d' % randint(0,9999)
-        
-        self._fsw = Toplevel(self._top)
-        node_name = treeseg.node()._text
-        self._fsw.title('Feature Structure of ' + node_name)
-        self._fsw.bind('<Control-p>', lambda e: self.print_to_file())
-        self._fsw.bind('<Control-x>', self.destroy)
-        self._fsw.bind('<Control-q>', self.destroy)
-
-        top_str = 'Top Feature Structure'
-        bot_str = 'Bottom Feature Structure'
-
-        cf = CanvasFrame(self._fsw, closeenough=10, width=400, height=300)
-        c = cf.canvas()
-        print treeseg._node
-        top_fs = fs_widget(treeseg.top_fs(), self._all_fs, c, _fs_name(node_name, True))
-        bot_fs = fs_widget(treeseg.bot_fs(), self._all_fs, c, _fs_name(node_name, False))
-        top_text = TextWidget(c, top_str, justify='center')
-        bot_text = TextWidget(c, bot_str, justify='center')
-        cstack = StackWidget(c, top_text, top_fs, bot_text, bot_fs, align='center')
-        cf.add_widget(cstack, 30, 30)
-        cf.pack(expand=1, fill='both')
-        self._fsw.mainloop()
-
-#    def set_parent_window(self, parent):
-#        self._top = parent
-    """
 
 class TAGTreeView(TreeView):
     """
@@ -898,46 +142,44 @@ class TAGTreeView(TreeView):
     tree to display, the ``TAGTreeWidget`` will be updated.
 
     """
-    def __init__(self, parent, trees):
-        #self.parent == None
-        if parent[0] is False:
+    def __init__(self, trees, **kwargs):
+        if "parent" in kwargs:
+            self._top = kwargs["parent"]
+        else:
             self._top = Tk()
             self._top.title('NLTK')
             self._top.bind('<Control-p>', lambda e: self.print_to_file())
             self._top.bind('<Control-x>', self.destroy)
             self._top.bind('<Control-q>', self.destroy)
-        else:
-            self._top = parent[1]
-        #    self.parent = parent[1]
 
         self._cframe = CanvasFrame(self._top)
         self._widgets = []
         self.treecomment = {}
         self.oldcomment = None
-        #self._cframe.add_widget(self.comment)
-        #self.comment = None
-        #self.commentwidget = None
         self.show_fs = True
         self._trees = trees
         self.redraw(True, trees)
 
 
     def _init_menubar(self):
+        """
+        Hide menubar
+        """
         pass
 
     def clear(self):
         """
         Clean canvas
         """
-        #self.comment = None
-        #if self.commentwidget:
-        #    self._cframe.destroy_widget(self.commentwidget)
         self.redraw(False)
 
     def collapse_comment(self):
-        self._cframe.add_widget(self.treecomment[id(self._trees[0])].widget(), 750, 0)
+        """
+        Show comment of selected TAG tree
+        """
+        self._cframe.add_widget(self.treecomment[id(self._trees[0])].widget(),
+                                750, 0)
 
-            #print 'update'
         trees = self._trees
         show = self.show_fs
         for i in self._widgets:
@@ -962,7 +204,6 @@ class TAGTreeView(TreeView):
                                 **self.attribs)
             widget['yspace'] = 70
             widget['xspace'] = 70
-            #widget.set_parent_window(self._top)
             self._widgets.append(widget)
             self._cframe.add_widget(widget, 0, 0)
 
@@ -977,16 +218,16 @@ class TAGTreeView(TreeView):
 
         :param show: a boolean value for whether to show the feature
         sturcture on the canvas
+        :type: bool
         :param trees: a list of tree segments
+        :type: list
         """ 
         self.attribs = attribs
         if trees and isinstance(trees[0], TAGTree): 
             if self.oldcomment:
                 self._cframe.destroy_widget(self.oldcomment.widget()) 
-            #if not id(trees[0]) in self.treecomment:
-            #    self.treecomment[id(trees[0])] = CommentWidget(self._cframe.canvas(), self)
-            #else:
-            self.treecomment[id(trees[0])] = CommentWidget(self._cframe.canvas(), self)
+            self.treecomment[id(trees[0])] = CommentWidget(self._cframe.canvas(),
+                                                           self,width=300)
             self.oldcomment = self.treecomment[id(trees[0])]
             self._cframe.add_widget(self.oldcomment.widget(), 750, 0)
         else:
@@ -994,7 +235,6 @@ class TAGTreeView(TreeView):
                 self._cframe.destroy_widget(self.oldcomment.widget())
                 self.oldcomment = None
 
-            #print 'update'
         self._trees = trees
         self.show_fs = show
         for i in self._widgets:
@@ -1019,14 +259,12 @@ class TAGTreeView(TreeView):
                                 **attribs)
             widget['yspace'] = 70
             widget['xspace'] = 70
-            #widget.set_parent_window(self._top)
             self._widgets.append(widget)
             self._cframe.add_widget(widget, 0, 0)
 
         
         self._layout()
         self._cframe.pack(expand=1, fill='both', side = LEFT)
-        #self._init_menubar()
 
     def pack(self, cnf={}, **kw):
         """
@@ -1034,341 +272,6 @@ class TAGTreeView(TreeView):
         for ``Tkinter.Pack`` for more information.
         """
         self._cframe.pack(cnf, **kw)
-
-
-class TAGTreeSetView(object):
-    """
-    A window that displays a TAG Tree set. TAG Tree Set
-    contains a group of TAG trees, when clicking the tree
-    name on the tree list, the tree will be displayed on
-    the canvas.
-
-    """
-    def __init__(self, tagtrees, parent=None):
-        self._trees = tagtrees
-
-        if parent is None:
-            self._top = Tk()
-            self._top.title('NLTK')
-            self._top.bind('<Control-p>', lambda e: self.print_to_file())
-            self._top.bind('<Control-x>', self.destroy)
-            self._top.bind('<Control-q>', self.destroy)
-            self._top.geometry("1400x800")
-        else:
-            self._top = parent[0]
-
-        frame = Frame(self._top)
-
-        v = StringVar()
-        self.w = Label(frame, text='Regexp:')
-        self._e = Entry(frame, textvariable=v)
-        self._e.bind("<Return>", self.return_pressed)
-        self._show_fs = True
-        self._show_fs_button = Button(frame, text="Hide Features", command=self.show_fs)
-        self._sfs_button = Button(frame, text="Add Start Features", command=self._start_fs)
-        self.highlight_button = Button(frame, text="Highlight", command=self.highlight)
-        self.remove_button = Button(frame, text="Remove", command=self.remove)
-        self.keep_button = Button(frame, text="Keep", command=self.keep)
-        self._sfs_button.pack(side=LEFT)
-        self._show_fs_button.pack(side=LEFT)
-        self.w.pack(side=LEFT)
-        self._e.pack(expand=1, fill='both', side = LEFT)
-        self.highlight_button.pack(side=RIGHT)
-        self.keep_button.pack(side=RIGHT)
-        self.remove_button.pack(side=RIGHT)
-        
-
-        statframe = Frame(self._top)
-        self.notfl = Label(statframe, text='Tree Framilies:')
-        self.notf = StringVar()
-        self.nott = StringVar()
-        self.tfcl = Label(statframe, textvariable=self.notf)
-        self.nottl = Label(statframe, text='Trees:')
-        self.tcl = Label(statframe, textvariable=self.nott)
-
-        self.notf.set(str(self._trees.tree_family_count()))
-        self.nott.set(str(self._trees.tree_count()))
-
-        statframe.pack(side = BOTTOM, fill='both')
-        self.notfl.pack(side = LEFT)
-        self.tfcl.pack(side = LEFT)
-        self.nottl.pack(side = LEFT)
-        self.tcl.pack(side = LEFT)
-
-        frame.pack(side = BOTTOM, fill='both')
-
-        self._frame = Frame(self._top)
-        self._frame.pack(fill='both', side = LEFT)
-        
-        self.cols = ('fullpath', 'type') 
-        self._add_fs = True
-        self._tagview = ttk.Treeview(self._frame, columns=self.cols, displaycolumns='',
-                                     yscrollcommand=lambda f, l:autoscroll(vsb, f, l),
-                                     xscrollcommand=lambda f, l:autoscroll(hsb, f, l))
-        ysb = ttk.Scrollbar(self._frame, orient=VERTICAL, command=self._tagview.yview)
-        xsb = ttk.Scrollbar(self._frame, orient=HORIZONTAL, command=self._tagview.xview)
-        self._tagview['yscroll'] = ysb.set
-        self._tagview['xscroll'] = xsb.set
-        if parent:
-            self._tagview.bind('<<TreeviewSelect>>', parent[1])
-        else:
-            self._tagview.bind('<<TreeviewSelect>>', self.display)
-        self.populate_tree('', self._trees)
-        self._tagview.configure(xscrollcommand=xsb.set,
-                                yscrollcommand=ysb.set)
-        ysb.pack(fill='y', side='right')
-        xsb.pack(fill='x', side='bottom')
-
-        self._tagview.heading('#0', text='Trees', anchor=W)
-        self._tagview.column('#0', stretch=1, width=220)
-
-        self._tagview.pack(expand=1, fill='both')
-        self._tw = TAGTreeView((True, self._top), None)
-        self._tw.pack(expand=1, fill='both', side = LEFT)
-
-    def return_pressed(self, event):
-        words = self._e.get().split()
-        if len(words) == 0:
-            self._show_fs = False
-            self.show_fs()
-        return
-
-    def _start_fs(self):
-        if self._trees.start_fs is None:
-            raise TypeError("Should set start feature for the TAG Trees First")
-        node = self._tagview.focus()
-        path = self._tagview.set(node, "fullpath").split('/')
-        tree = self._trees
-        for subpath in path[1:]:
-            if subpath in tree:
-                tree = tree[subpath]
-            else:
-                raise TypeError("%s: tree does not match"
-                             % type(self).__name__)
-        if isinstance(tree, type(self._trees)):
-            return
-        if self._add_fs:
-            self._sfs_button['text'] = 'Delete Start Features'
-            self.add_start_fs(tree, self._trees.start_fs)
-        else:
-            self._sfs_button['text'] = 'Add Start Features'
-            self.del_start_fs(tree)
-        self._add_fs = not self._add_fs
-
-    def add_start_fs(self, tree, start_fs):
-        root = tree.get_node_name() + '.t'
-        all_fs = tree.get_all_fs()
-        self._old_sfs = copy.deepcopy(all_fs[root])
-        for i in start_fs:
-            all_fs[root][i] = start_fs[i]
-        tree.set_all_fs(all_fs)
-        self._tw.redraw(self._show_fs, tree)
-
-    def del_start_fs(self, tree):
-        root = tree.get_node_name() + '.t'
-        all_fs = tree.get_all_fs()
-        all_fs[root] = self._old_sfs
-        tree.set_all_fs(all_fs)
-        self._old_sfs = None
-        self._tw.redraw(self._show_fs, tree)
-    
-    def pack(self):
-        """
-        Pack the canvas frame of ``TAGTreeView``.
-        """
-        self._tagview.pack(expand=1, fill='both')
-        self._frame.pack(fill='both', side = LEFT)
-        self._tw.pack(expand=1, fill='both', side = LEFT)
-
-    def focus(self):
-        node = self._tagview.focus()
-        path = self._tagview.set(node, "fullpath").split('/')
-        tree = self._trees
-        for subpath in path[1:]:
-            if subpath in tree:
-                if not isinstance(tree, type(self._trees)):
-                    if tree._lex:
-                        tree[subpath] = tree[subpath].copy(True)
-
-                tree = tree[subpath]
-            else:
-                raise TypeError("%s: tree does not match"
-                             % type(self).__name__)
-
-        if not isinstance(tree, type(self._trees)):
-            if tree._lex:
-                tree.lexicalize()
-                tree._lex = False
-            return (tree, subpath)
-
-    def display(self, event=None):
-        """
-        Display the tag tree on the canvas when the tree
-        is selected.
-        """
-        node = self._tagview.focus()
-        path = self._tagview.set(node, "fullpath").split('/')
-        tree = self._trees
-        for subpath in path[1:]:
-            if subpath in tree:
-                if not isinstance(tree, type(self._trees)):
-                    if tree._lex:
-                        tree[subpath] = tree[subpath].copy(True)
-
-                tree = tree[subpath]
-            else:
-                raise TypeError("%s: tree does not match"
-                             % type(self).__name__)
-
-        if not isinstance(tree, type(self._trees)):
-            if tree._lex:
-                tree.lexicalize()
-                tree._lex = False
-                self._tw.redraw(self._show_fs, tree)
-            else:
-                self._tw.redraw(self._show_fs, tree)
-
-    def populate_tree(self, parent, trees):
-        """
-        Popluate the trees on the treeview.
-        """
-        if not trees:
-            return
-        #print sorted(trees.keys())
-        for t in sorted(trees.keys()):
-            node = parent
-            parent_path = self._tagview.set(parent, "fullpath")
-            path = parent_path + '/' + t
-            if ord(t[0]) < 10:
-                f_chr = self._tran_greek(t[0])
-            else:
-                f_chr = t[0]
-            if isinstance(trees[t], type(trees)):
-                node = self._tagview.insert(parent, END, text=f_chr+t[1:],
-                                      values=[path, 'directory'])
-                self.populate_tree(node, trees[t])
-            else:
-                self._tagview.insert(parent, END, text=f_chr+t[1:],
-                                      values=[path, 'file'])
-    
-    def clear(self):
-        """
-        Empty the treeview and TAG tree set.
-        """
-        self._sfs_button['text'] = 'Add Start Features'
-        self._add_fs = True
-        x = self._tagview.get_children()
-        for item in x: 
-            self._tagview.delete(item)
-        self._trees = TAGTreeSet()
-
-    def update(self, trees):
-        """
-        Update the window when the change the TAG tree set.
-        """
-        self._tw.clear()
-        self._trees = trees
-        self.populate_tree('', trees)
-        self.notf.set(str(self._trees.tree_family_count()))
-        self.nott.set(str(self._trees.tree_count()))
-
-    def _tran_greek(self, ascii):    
-        i = ord(u'\u03af') + ord(ascii)
-        return unichr(i)
-
-    def destroy(self, *e):
-        if self._top is None: return
-        self._top.destroy()
-        self._top = None
-
-    def mainloop(self, *args, **kwargs):
-        """
-        Enter the Tkinter mainloop.  This function must be called if
-        this demo is created from a non-interactive program (e.g.
-        from a secript); otherwise, the demo will close as soon as
-        the script completes.
-        """
-        if in_idle(): return
-        self._top.mainloop(*args, **kwargs)
-
-    def show_fs(self):
-        """
-        Display or hide the feature structure on the canvas.
-        """
-        if self._show_fs:
-            self._show_fs_button['text'] = 'Show Feature'
-        else:
-            self._show_fs_button['text'] = 'Hide Feature'
-        self._e.delete(0, END)
-        self._show_fs = not self._show_fs
-        node = self._tagview.focus()
-        path = self._tagview.set(node, "fullpath").split('/')
-        tree = self._trees
-        for subpath in path[1:]:
-            if subpath in tree:
-                tree = tree[subpath]
-            else:
-                raise TypeError("%s: tree does not match"
-                             % type(self).__name__)
-        if not isinstance(tree, type(self._trees)):
-            self._tw.redraw(self._show_fs, tree)
-
-    def keep(self):
-        """
-        Display the feature structures which match the
-        input regular expression.
-        """
-        node = self._tagview.focus()
-        path = self._tagview.set(node, "fullpath").split('/')
-        tree = self._trees
-        for subpath in path[1:]:
-            if subpath in tree:
-                tree = tree[subpath]
-            else:
-                raise TypeError("%s: tree does not match"
-                             % type(self).__name__)
-        if not isinstance(tree, type(self._trees)):
-            self._tw.redraw(self._show_fs, tree, keep=True, reg=self._e.get())
-        self._show_fs_button['text'] = 'Show ALL Features'
-        self._show_fs = False
-        #return
-
-    def highlight(self):
-        """
-        Remove the feature structures which match the
-        input regular expression from the canvas.
-        """
-        node = self._tagview.focus()
-        path = self._tagview.set(node, "fullpath").split('/')
-        tree = self._trees
-        for subpath in path[1:]:
-            if subpath in tree:
-                tree = tree[subpath]
-            else:
-                raise TypeError("%s: tree does not match"
-                             % type(self).__name__)
-        if not isinstance(tree, type(self._trees)):
-            self._tw.redraw(self._show_fs, tree, highlight=True, reg=self._e.get())
-
-    def remove(self):
-        """
-        Highlight the feature structures which match 
-        the input regular expression.
-        """
-        node = self._tagview.focus()
-        path = self._tagview.set(node, "fullpath").split('/')
-        tree = self._trees
-        for subpath in path[1:]:
-            if subpath in tree:
-                tree = tree[subpath]
-            else:
-                raise TypeError("%s: tree does not match"
-                             % type(self).__name__)
-        if not isinstance(tree, type(self._trees)):
-            self._tw.redraw(self._show_fs, tree, remove=True, reg=self._e.get())
-        self._show_fs_button['text'] = 'Show ALL Features'
-        self._show_fs = False
-        #return
 
 class TAGTreeSet(dict):
     """
@@ -1485,96 +388,541 @@ class TAGTreeSet(dict):
             return clone    
 
     def set_start_fs(self, fs):
+        """
+        Set start feature of all TAG trees.
+        :param fs: start feature
+        :type: FeatStruct
+        """
         self.start_fs = fs 
 
-def _parse_tree_list(txt, fs):
-    tree_list = _parse_brackets(txt)
-    t = _build_tree(tree_list[0], fs)
-    return t
+class TAGTreeSetView(object):
+    """
+    A window that displays a TAG Tree set. TAG Tree Set
+    contains a group of TAG trees, when clicking the tree
+    name on the tree list, the tree will be displayed on
+    the canvas.
 
-def _build_tree(tree_list, fs):
-    node = _parse_node(tree_list[0])
-    node_name = node[0]
-    node_attr = node[1]
-    top_fs = FeatStruct()
-    bot_fs = FeatStruct()
-    if node_name + '.t' in fs:
-        top_fs = fs[node_name + '.t']
-    if node_name + '.b' in fs:
-        bot_fs = fs[node_name + '.b']
-    if len(tree_list) == 1:
-        return TAGTree((node_name, top_fs, bot_fs), [], node_attr)
-    else:
-        sub_tree = []
-        for i in range(1, len(tree_list)):
-            sub_tree.append(_build_tree(tree_list[i], fs))
-        return TAGTree((node_name, top_fs, bot_fs), sub_tree, node_attr)
- 
-def _parse_node(node_list):
-    clist = []
-    pre = node_list[0][0][0]
-    suf = node_list[0][0][2]
-    pre = pre.replace('"', '')
-    suf = suf.replace('"', '')
-    for i in range(0,2):
-        if len(node_list) > 1:
-            clist = [(node_list[2*j - 1], node_list[2 * j]) 
-                      for j in range(1, len(node_list)/2 + 1)]
-    if ord(pre[0]) == 6 and len(pre) == 1:
-        pre = u'\u03b5'.encode('utf-8')
-    
-    if len(suf) != 0:
-        pre = pre + '_' + suf
-    if (':substp', 'T') in clist:
-        attr = 'subst'
-    elif (':headp', 'T') in clist:
-        attr = 'head'
-    elif (':footp', 'T') in clist:
-        attr = 'foot'
-    else:
-        attr = None
-    return (pre, attr, clist)
- 
-def _parse_brackets(txt):
-    txt = '(' + txt + ')'
-    lresult = []
-    ss = ''
-    for c in txt:
-        if c == '(':
-            if len(ss) != 0:
-                lresult.append(lresult.pop() + ss.split())
-                ss = ''
-            lresult.append([])
-        elif c == ')':
-            last = lresult.pop()
-            if len(ss) != 0:
-                last += ss.split()
-                ss = ''
-            if len(lresult) > 0:
-                lresult.append(lresult.pop() + [last])
-            else:
-                lresult.append(last)
+    """
+    def __init__(self, tagtrees, parent=None):
+        self._trees = tagtrees
+
+        if parent is None:
+            self._top = Tk()
+            self._top.title('NLTK')
+            self._top.bind('<Control-p>', lambda e: self.print_to_file())
+            self._top.bind('<Control-x>', self.destroy)
+            self._top.bind('<Control-q>', self.destroy)
+            self._top.geometry("1400x800")
         else:
-            ss += c
-    return lresult[0]
+            self._top = parent[0]
 
-def xtag_parser(txt):
+        frame = Frame(self._top)
+
+        v = StringVar()
+        self.w = Label(frame, text='Regexp:')
+        self._e = Entry(frame, textvariable=v)
+        self._e.bind("<Return>", self.return_pressed)
+        self._show_fs = True
+        self._show_fs_button = Button(frame, text="Hide Features",
+                                      command=self.show_fs)
+        self._sfs_button = Button(frame, text="Add Start Features",
+                                  command=self.start_feat)
+        self.highlight_button = Button(frame, text="Highlight",
+                                       command=self.highlight)
+        self.remove_button = Button(frame, text="Remove",
+                                    command=self.remove)
+        self.keep_button = Button(frame, text="Keep",
+                                  command=self.keep)
+        self._sfs_button.pack(side=LEFT)
+        self._show_fs_button.pack(side=LEFT)
+        self.w.pack(side=LEFT)
+        self._e.pack(expand=1, fill='both', side = LEFT)
+        self.highlight_button.pack(side=RIGHT)
+        self.keep_button.pack(side=RIGHT)
+        self.remove_button.pack(side=RIGHT)
+        
+
+        statframe = Frame(self._top)
+        self.notfl = Label(statframe, text='Tree Framilies:')
+        self.notf = StringVar()
+        self.nott = StringVar()
+        self.tfcl = Label(statframe, textvariable=self.notf)
+        self.nottl = Label(statframe, text='Trees:')
+        self.tcl = Label(statframe, textvariable=self.nott)
+
+        self.notf.set(str(self._trees.tree_family_count()))
+        self.nott.set(str(self._trees.tree_count()))
+
+        statframe.pack(side = BOTTOM, fill='both')
+        self.notfl.pack(side = LEFT)
+        self.tfcl.pack(side = LEFT)
+        self.nottl.pack(side = LEFT)
+        self.tcl.pack(side = LEFT)
+
+        frame.pack(side = BOTTOM, fill='both')
+
+        self._frame = Frame(self._top)
+        self._frame.pack(fill='both', side = LEFT)
+        
+        self.cols = ('fullpath', 'type') 
+        self._add_fs = True
+        self._tagview = ttk.Treeview(self._frame, columns=self.cols,
+                            displaycolumns='',
+                            yscrollcommand=lambda f, l:autoscroll(vsb, f, l),
+                            xscrollcommand=lambda f, l:autoscroll(hsb, f, l))
+        ysb = ttk.Scrollbar(self._frame, orient=VERTICAL, 
+                            command=self._tagview.yview)
+        xsb = ttk.Scrollbar(self._frame, orient=HORIZONTAL,
+                            command=self._tagview.xview)
+        self._tagview['yscroll'] = ysb.set
+        self._tagview['xscroll'] = xsb.set
+        if parent:
+            self._tagview.bind('<<TreeviewSelect>>', parent[1])
+        else:
+            self._tagview.bind('<<TreeviewSelect>>', self.display)
+        self.populate_tree('', self._trees)
+        self._tagview.configure(xscrollcommand=xsb.set,
+                                yscrollcommand=ysb.set)
+        ysb.pack(fill='y', side='right')
+        xsb.pack(fill='x', side='bottom')
+
+        self._tagview.heading('#0', text='Trees', anchor=W)
+        self._tagview.column('#0', stretch=1, width=220)
+
+        self._tagview.pack(expand=1, fill='both')
+        self._tw = TAGTreeView(None, parent=self._top)
+        self._tw.pack(expand=1, fill='both', side = LEFT)
+
+    def return_pressed(self, event):
+        """
+        Short-cut for pressing return to show feature structures
+        """
+        words = self._e.get().split()
+        if len(words) == 0:
+            self._show_fs = False
+            self.show_fs()
+        return
+
+    def start_feat(self):
+        """
+        Add or Remove start feature structure of TAG tree set
+        """
+        if self._trees.start_fs is None:
+            raise TypeError("Should set start feature for TAG Trees First")
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        if isinstance(tree, type(self._trees)):
+            return
+        if self._add_fs:
+            self._sfs_button['text'] = 'Delete Start Features'
+            self.add_start_fs(tree, self._trees.start_fs)
+        else:
+            self._sfs_button['text'] = 'Add Start Features'
+            self.del_start_fs(tree)
+        self._add_fs = not self._add_fs
+
+    def add_start_fs(self, tree, start_fs):
+        """
+        Add start feature structure.
+        :param tree: display tree
+        :type: TAGTree
+        :param start_fs: start feature structure
+        :type: FeatStruct
+        """
+        root = tree.get_node_name() + '.t'
+        all_fs = tree.get_all_fs()
+        self._old_sfs = copy.deepcopy(all_fs[root])
+        for i in start_fs:
+            all_fs[root][i] = start_fs[i]
+        tree.set_all_fs(all_fs)
+        self._tw.redraw(self._show_fs, tree)
+
+    def del_start_fs(self, tree):
+        """
+        Remove start feature structure.
+        :param tree: display tree
+        :type: TAGTree
+        """
+        root = tree.get_node_name() + '.t'
+        all_fs = tree.get_all_fs()
+        all_fs[root] = self._old_sfs
+        tree.set_all_fs(all_fs)
+        self._old_sfs = None
+        self._tw.redraw(self._show_fs, tree)
+    
+    def pack(self):
+        """
+        Pack the canvas frame of ``TAGTreeView``.
+        """
+        self._tagview.pack(expand=1, fill='both')
+        self._frame.pack(fill='both', side = LEFT)
+        self._tw.pack(expand=1, fill='both', side = LEFT)
+
+    def focus(self):
+        """
+        Get selected TAGTree
+        :return: selected treeview
+        :rtype: TAGTree
+        """
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                if not isinstance(tree, type(self._trees)):
+                    if tree._lex:
+                        tree[subpath] = tree[subpath].copy(True)
+
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+
+        if not isinstance(tree, type(self._trees)):
+            if tree._lex:
+                tree.lexicalize()
+                tree._lex = False
+            return (tree, subpath)
+
+    def display(self, event=None):
+        """
+        Display the tag tree on the canvas when the tree
+        is selected.
+        """
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                if not isinstance(tree, type(self._trees)):
+                    if tree._lex:
+                        tree[subpath] = tree[subpath].copy(True)
+
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+
+        if not isinstance(tree, type(self._trees)):
+            if tree._lex:
+                tree.lexicalize()
+                tree._lex = False
+                self._tw.redraw(self._show_fs, tree)
+            else:
+                self._tw.redraw(self._show_fs, tree)
+
+    def populate_tree(self, parent, trees):
+        """
+        Popluate the trees on the treeview.
+        """
+        if not trees:
+            return
+        for t in sorted(trees.keys()):
+            node = parent
+            parent_path = self._tagview.set(parent, "fullpath")
+            path = parent_path + '/' + t
+            if ord(t[0]) < 10:
+                f_chr = self.greek(t[0])
+            else:
+                f_chr = t[0]
+            if isinstance(trees[t], type(trees)):
+                node = self._tagview.insert(parent, END, text=f_chr+t[1:],
+                                      values=[path, 'directory'])
+                self.populate_tree(node, trees[t])
+            else:
+                self._tagview.insert(parent, END, text=f_chr+t[1:],
+                                      values=[path, 'file'])
+    
+    def clear(self):
+        """
+        Empty the treeview and TAG tree set.
+        """
+        self._sfs_button['text'] = 'Add Start Features'
+        self._add_fs = True
+        x = self._tagview.get_children()
+        for item in x: 
+            self._tagview.delete(item)
+        self._trees = TAGTreeSet()
+
+    def update(self, trees):
+        """
+        Update the window when the change the TAG tree set.
+        """
+        self._tw.clear()
+        self._trees = trees
+        self.populate_tree('', trees)
+        self.notf.set(str(self._trees.tree_family_count()))
+        self.nott.set(str(self._trees.tree_count()))
+
+    def greek(self, ascii):
+        """
+        Translate ASCII to greek letter
+        """    
+        i = ord(u'\u03af') + ord(ascii)
+        return unichr(i)
+
+    def destroy(self, *e):
+        if self._top is None: return
+        self._top.destroy()
+        self._top = None
+
+    def mainloop(self, *args, **kwargs):
+        """
+        Enter the Tkinter mainloop.  This function must be called if
+        this demo is created from a non-interactive program (e.g.
+        from a secript); otherwise, the demo will close as soon as
+        the script completes.
+        """
+        if in_idle(): return
+        self._top.mainloop(*args, **kwargs)
+
+    def show_fs(self):
+        """
+        Display or hide the feature structure on the canvas.
+        """
+        if self._show_fs:
+            self._show_fs_button['text'] = 'Show Feature'
+        else:
+            self._show_fs_button['text'] = 'Hide Feature'
+        self._e.delete(0, END)
+        self._show_fs = not self._show_fs
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        if not isinstance(tree, type(self._trees)):
+            self._tw.redraw(self._show_fs, tree)
+
+    def keep(self):
+        """
+        Display the feature structures which match the
+        input regular expression.
+        """
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        if not isinstance(tree, type(self._trees)):
+            self._tw.redraw(self._show_fs, tree, keep=True, reg=self._e.get())
+        self._show_fs_button['text'] = 'Show ALL Features'
+        self._show_fs = False
+        #return
+
+    def highlight(self):
+        """
+        Remove the feature structures which match the
+        input regular expression from the canvas.
+        """
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        if not isinstance(tree, type(self._trees)):
+            self._tw.redraw(self._show_fs, tree, 
+                            highlight=True, reg=self._e.get())
+
+    def remove(self):
+        """
+        Highlight the feature structures which match 
+        the input regular expression.
+        """
+        node = self._tagview.focus()
+        path = self._tagview.set(node, "fullpath").split('/')
+        tree = self._trees
+        for subpath in path[1:]:
+            if subpath in tree:
+                tree = tree[subpath]
+            else:
+                raise TypeError("%s: tree does not match"
+                             % type(self).__name__)
+        if not isinstance(tree, type(self._trees)):
+            self._tw.redraw(self._show_fs, tree, 
+                            remove=True, reg=self._e.get())
+        self._show_fs_button['text'] = 'Show ALL Features'
+        self._show_fs = False
+
+class CommentWidget(object):
     """
-    Get a TAGTreeSet
+    A canvas widget that displays a comment of a tree.
+    Click to collapse or close the comment
 
-    :param txt is a string describing TAG trees, the form is defined in
-    UPenn Xtag project
+    Attributes:
+
+      - ``xposition``: the x cordinates of the widget on canvas
+      - ``yposition``: the y cordinates of the widget on canvas
+      - ``width``: width of comment width
+
     """
-    arglist = analyze_tree_5(analyze_tree_4(analyze_tree_3(analyze_tree_2(analyze_tree_1(txt)))))
-    tagset = TAGTreeSet()      
-    for element in arglist:
-        new_tree = _parse_tree_list(element[2], element[4])
-        tree_name = element[0]
-        new_tree.set_comment(element[5]['COMMENTS'])
-        tagset[tree_name] = new_tree
-    return tagset
+    def __init__(self, canvas, parent, **attribs):
+        for (i, j) in attribs.items():
+            if i in ['xposition', 'yposition', 'width']:
+                self._attr[i] = j
+                del attribs[i]
+        self.canvas = canvas
+        self.attribs = attribs
+        self.viewer = parent
+        self.tri = TextWidget(canvas, u'\u25b6'.encode('utf-8')+'    COMMENTS')
+        self.tri.bind_click(self.collapse)
+        self.show = False
+        self.stack = StackWidget(canvas, self.tri, **attribs)
 
-def search(lex_list, count, alltrees):
+    def widget(self):
+        return self.stack
+
+    def collapse(self, event):
+        if self.show:
+            self.viewer._cframe.destroy_widget(self.stack)
+            self.tri = TextWidget(self.canvas, 
+                                  u'\u25b6'.encode('utf-8') + '    COMMENTS')
+            self.tri.bind_click(self.collapse)
+            self.stack = StackWidget(self.canvas, self.tri, **self.attribs)
+        else:
+            self.viewer._cframe.destroy_widget(self.stack)
+            self.tri = TextWidget(self.canvas, 
+                                  u'\u25bc'.encode('utf-8') + '    COMMENTS')
+            self.tri.bind_click(self.collapse)
+            print self.viewer._trees
+            comment = TextWidget(self.canvas, self.viewer._trees[0].comment, 
+                                  width=self._attr['width']-40)
+            hspace1 = SpaceWidget(self.canvas, self._attr['width'], 0)
+            hspace2 = SpaceWidget(self.canvas, self._attr['width'], 0)              
+            tstack = StackWidget(self.canvas, hspace1, comment, hspace2)
+            box = BoxWidget(self.canvas, tstack)
+            self.stack = StackWidget(self.canvas, self.tri, box, align='left')
+        self.show = not self.show
+        self.viewer.collapse_comment()
+
+class TAGTreeWidget(TreeWidget):
+    """
+    A canvas widget that displays a single TAG Tree, inherit from 
+    ``TreeWidget``. ``TAGTreeWidget`` manages a group of ``TreeSegmentWidgets``
+    that are used to display a TAG Tree. The each TAG Tree node
+    contains a top feature structure and a bottom feature structure.
+    The feature structures can be set to display or hidden on the canvas.
+
+    Attributes:
+
+      - ``keep``: Display the feature structures which match the
+        input regular expression.
+        node widgets for this ``TreeWidget``.
+      - ``remove``: Remove the feature structures which match the
+        input regular expression from the canvas.
+      - ``highlight``: Highlight the feature structures which match 
+        the input regular expression.
+      - ``reg``: The input regular expression for keep, remove or
+        highlight.
+
+    """
+    def __init__(self, canvas, t, fs, show, parent, make_node=TextWidget,
+                 make_leaf=TextWidget, **attribs):
+        self._all_fs = fs
+        self._show_fs = show
+        self._attr = {}
+
+        for (i, j) in attribs.items():
+            if i in ['keep', 'remove', 'highlight', 'reg']:
+                self._attr[i] = j
+                del attribs[i]
+        TreeWidget.__init__(self, canvas, t, make_node,
+                            make_leaf, **attribs)   
+        self._top = parent
+
+    def _make_expanded_tree(self, canvas, t, key):        
+        make_node = self._make_node
+        make_leaf = self._make_leaf
+
+        if isinstance(t, TAGTree):
+            node_name = self.get_node_name(t)
+            bold = ('helvetica', -24, 'bold')
+            node = make_node(canvas, node_name, font=bold,
+                                color='#004080')
+
+            if self._show_fs:
+                top_fs = feat_widget(t.top_fs, self._all_fs, canvas, 
+                               global_featname(node_name, True), **self._attr)
+                bot_fs = feat_widget(t.bot_fs, self._all_fs, canvas,
+                            global_featname(node_name, False), **self._attr)
+                cstack = StackWidget(canvas, top_fs, bot_fs, align='left')
+                node =  SequenceWidget(canvas, node, cstack, align='top')
+
+            self._nodes.append(node)
+            children = t
+            subtrees = [self._make_expanded_tree(canvas, children[i], key+(i,))
+                        for i in range(len(children))]
+            top_name = global_featname(t.node, True)
+            bot_name = global_featname(t.node, False)
+            top_fs = FeatStruct()
+            bot_fs = FeatStruct()
+            if top_name in self._all_fs:
+                top_fs = self._all_fs[top_name]
+            if bot_name in self._all_fs:
+                bot_fs = self._all_fs[bot_name]
+
+            treeseg = TreeSegmentWidget(canvas, node, subtrees, 
+                                        color=self._line_color,
+                                        width=self._line_width)
+            self._expanded_trees[key] = treeseg
+            self._keys[treeseg] = key
+
+            return treeseg
+        else:
+            leaf = make_leaf(canvas, t, **self._leafattribs)
+            self._leaves.append(leaf)
+            return leaf
+
+    def get_node_name(self, t):    
+        """
+        Get the name of the current node, use specific symbols
+        for substitution node, head node and foot node.
+        :param t: Current node
+        :type t: TAGTree
+        :return: Node name
+        :rtype: str
+        """    
+        if t.attr == 'subst':
+            return t.node + u'\u2193'.encode('utf-8')
+        elif t.attr == 'head':
+            return t.node + u'\u25c7'.encode('utf-8')
+        elif t.attr == 'foot':
+            return t.node + u'\u2605'.encode('utf-8')
+        elif t.attr == None:
+            return t.node
+        elif t.attr == 'lex':
+            return t.node
+        else:
+            raise TypeError("%s: Expected an attribute with value"
+                            "subst, head or foot ")
+
+def lex_search(lex_list, count, alltrees):
+    """
+    Lexicalized current tree set
+    :param lex_list: a list of lexicalized node
+    :type: list
+    :alltrees: TAG tree set to be lexicalized
+    :type: TAGTreeSet
+    """
     fset = TAGTreeSet()
     for morph in lex_list:
         index = ''
@@ -1628,281 +976,6 @@ def search(lex_list, count, alltrees):
     fset.set_start_fs(alltrees.start_fs)
     return fset
 
-class DependencyGraphView(TAGTreeSetView):
-    def __init__(self, tagset):
-
-        TAGTreeSetView.__init__(self, tagset)
-        """
-        self._top = Tk()
-        self._top.title('NLTK')
-        self._top.bind('<Control-p>', lambda e: self.print_to_file())
-        self._top.bind('<Control-x>', self.destroy)
-        self._top.bind('<Control-q>', self.destroy)
-        #"""
-        self._cframe = CanvasFrame(self._top, closeenough=1, width=4)
-        self._widgets = []
-        self._merge = TreeMerge([], self)
-        #self._merge = TreeMerge([trees], self)
-        self._tset = self._merge.tree()
-        self._ps = None
-        self._os = None
-        self.w['text'] = '    Input Sentence:    '
-        self.remove_button['text'] = '  Parse  '
-        self.remove_button['command'] = self.parse
-        self.keep_button['text'] = 'Import Tree'
-        self.highlight_button['text'] = 'Export Tree'
-        #self.tree_selected = {}
-        self._show_fs_button['text'] = 'Select'
-        self.node_trees = {}
-        self.node_treename = {}
-        self.tree_widget = {}
-        self._show_fs_button['command'] = self.select_tree
-        self.file_opt = {}
-        self.keep_button['command'] = self.openparsefile
-        self._sfs_button.pack_forget()
-        self.notfl['text'] = ''
-        self.nottl['text'] = ''
-        self.tfcl.pack_forget()
-        self.tcl.pack_forget()
-        self.alltrees = tagset
-        self.elements = []
-        self.redraw()
-        self.clear()
-        #self.parser = parser
-
-    def select_tree(self):
-        if self.node_trees[id(self.node_selected)] == None:
-            t, name = self.focus()
-            if t == None:
-                return
-            self.node_trees[id(self.node_selected)] = t
-            self.node_treename[id(self.node_selected)] = name
-            for subtree in self.node_selected:
-                if id(subtree) in self.node_trees and not self.node_trees[id(subtree)] == None:
-                    print tree_compatible(self.node_selected, subpath)
-            self._show_fs_button['text'] = 'Cancel'
-            self.tree_selected = False
-        else:
-            self._show_fs_button['text'] = 'Select'
-            self.tree_selected = True
-            self.node_trees[id(self.node_selected)] = None
-            self.node_treename[id(self.node_selected)] = None
-    
-    def draw_parsed_tree(self):
-        if self.node_selected == None:
-            return
-        if self.node_trees[id(self.node_selected)]:
-            self._show_fs_button['text'] = 'Cancel'
-            tree = self.node_trees[id(self.node_selected)]
-            self._tw.redraw(self._show_fs, tree)
-        else:
-            self._show_fs_button['text'] = 'Select'
-
-
-    def openparsefile(self):
-        self.filename = tkFileDialog.askopenfilename(**self.file_opt)
-        data = open(self.filename, 'r').read()
-        graphs = [DependencyGraph(entry)
-              for entry in data.split('\n\n') if entry]
-        self._merge = TreeMerge([graph.tree() for graph in graphs], self)
-        self._tset = self._merge.tree()
-        stack = [tree for tree in self._tset]
-        while len(stack) > 0:
-            e = stack.pop()
-            self.node_trees[id(e)] = None
-            if len(e) > 0:
-                stack += [tree for tree in e]
-        self.redraw()
-
-    def parse(self):
-        self.clear()
-        words = word_tokenize(self._e.get())
-        trees = [Tree(word, []) for word in words]
-        self._merge = TreeMerge(trees, self)
-        self._tset = self._merge.tree()
-        self.redraw()
-        self.node_trees = {}
-        for tree in self._tset:
-            self.node_trees[id(tree)] = None
-        #graph = self.parser.parse(words)
-        #print graph
-
-    def compatible(self, word):
-        self.clear()
-        lex_list = word_to_features(word)
-        fset = search(lex_list, {}, self.alltrees)
-        self.update(fset)
-    """
-    def redraw(self, pid=None, hid=None):
-        #cf = CanvasFrame(width=550, height=450, closeenough=2)
-        #GraphWidget(self._cframe.canvas(), self._tset[0], self._merge,
-        #                     self._top, self, self.boxit)
-        #self._cframe.pack(expand=1, fill='both', side = LEFT)
-        #print self._merge.trees
-
-        self._size = IntVar(self._top)
-        self._size.set(12)
-        bold = ('helvetica', -self._size.get(), 'bold')
-        helv = ('helvetica', -self._size.get())
-
-        pw = None
-        hw = None
-        self._width = 0
-        for i in self._tset:
-            self._width += int(ceil(sqrt(len(i))))
-
-        for i in self._widgets:
-            if i in self.tree_widget.values():
-                #self._cframe.remove_widget(i)
-                continue
-            else:
-                self._cframe.destroy_widget(i)
-
-        if isinstance(pid, int):
-            pw = self.tree_widget[pid]
-            del self.tree_widget[pid]
-        if isinstance(hid, int):
-            hw = self.tree_widget[hid]
-            del self.tree_widget[hid]
-        for i in range(len(self._tset)):
-
-            if not id(self._tset[i]) in self.tree_widget:
-                if pw and hw:
-                    self._cframe.remove_widget(pw)
-                    self._cframe.remove_widget(hw)
-
-                    parent = pw._treeseg
-                    child = hw._treeseg
-                    child.parent()._remove_child_widget(child)
-                    #print child.parent(), 231
-                    parent._subtrees.insert(-1, child)
-                    parent._add_child_widget(child)
-                    parent._lines.append(parent.canvas().create_line(0,0,0,0, fill='#006060'))
-                    parent.update(parent._node)                   
-                    widget = pw
-                    widget.init_tags()
-                elif pid:
-                    if pid._tree == self._tset[i]:
-                        widget = pid.parent()
-                    elif hid._tree == self._tset[i]:
-                        widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
-                                     self._top, self, self.boxit)
-                        self.node_trees[widget._treeseg._node] = self.node_trees[hid._node]
-                        del self.node_trees[hid._node]
-                else:
-                    print pid, 200, self._tset[i]
-                    widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
-                                     self._top, self, self.boxit)
-            else:
-                print pid, 300, self._tset[i]
-                widget = self.tree_widget[id(self._tset[i])]
-                print widget._treeseg
-                self._cframe.remove_widget(widget)
-            print widget, self._tset[i], 12415425
-            self.tree_widget[id(self._tset[i])] = widget
-        print self.tree_widget
-
-        self._widgets = []
-        for widget in self.tree_widget.values():
-            print widget#, widget._treeseg, 1
-            self._widgets.append(widget)
-            self._cframe.add_widget(widget, 0, 0)
-
-        for e in self.elements:
-            if not e in self.node_trees:
-                self.node_trees[e] = None
-
-        self._layout()
-        self._cframe.pack(expand=1, fill='both', side = LEFT)
-        #self._init_menubar()
-        """
-
-    def redraw(self):
-        """
-        Update the current canvas to display another tree, set te feature
-        sturctures to display or hidden.
-
-        :param show: a boolean value for whether to show the feature
-        sturcture on the canvas
-        :param trees: a list of tree segments
-        """
-        #cf = CanvasFrame(width=550, height=450, closeenough=2)
-        #GraphWidget(self._cframe.canvas(), self._tset[0], self._merge,
-        # self._top, self, self.boxit)
-        #self._cframe.pack(expand=1, fill='both', side = LEFT)
-        #print self._merge.trees
-        for i in self._widgets:
-            self._cframe.destroy_widget(i)
-        self._size = IntVar(self._top)
-        self._size.set(12)
-        bold = ('helvetica', -self._size.get(), 'bold')
-        helv = ('helvetica', -self._size.get())
-
-        self._width = 0
-        for i in self._tset:
-            self._width += int(ceil(sqrt(len(i))))
-        self._widgets = []
-        for i in range(len(self._tset)):
-        # print trees[i]
-            #if isinstance(trees[i], TAGTree):
-            # fs = trees[i].get_all_fs()
-            #else:
-            # fs = None
-            widget = GraphWidget(self._cframe.canvas(), self._tset[i], self._merge,
-                             self._top, self, self.boxit)
-            #widget.set_parent_window(self._top)
-            self._widgets.append(widget)
-            self._cframe.add_widget(widget, 0, 0)
-
-        self._layout()
-        self._cframe.pack(expand=1, fill='both', side = LEFT)
-        #self._init_menubar()
-
-    def _layout(self):
-        i = x = y = ymax = 0
-        width = self._width
-        for i in range(len(self._widgets)):
-            widget = self._widgets[i]
-            (oldx, oldy) = widget.bbox()[:2]
-            if width == 0:
-                width = 10
-            if i % width == 0:
-                y = ymax
-                x = 0
-            widget.move(x-oldx, y-oldy)
-            x = widget.bbox()[2] + 10
-            ymax = max(ymax, widget.bbox()[3] + 10)
-
-    def boxit(self, canvas, text):
-        big = ('helvetica', -16, 'bold')
-        return GraphElementWidget(canvas, self, TextWidget(canvas, text,
-                                            font=big), text, fill='green')
-
-    def select(self, element):
-        if self._ps == None:
-            self._ps = element
-            self._os = self._ps
-            return
-        if self._ps == element or self._ps._select == 2:
-            return
-        self._ps.reset()
-        self._os = self._ps
-        self._ps = element
-
-    def rollback(self, element):
-        if self._os == None:
-            return
-        self._os = None
-        self._ps = None
-        #self._ps.select()
-
-
-    #def ovalit(canvas, text):
-    #    return OvalWidget(canvas, TextWidget(canvas, text),
-                          #fill='cyan')
-    #treetok = Tree.parse('(S (NP this tree) (VP (V is) (AdjP shapeable)))')
-    #tc2 = GraphWidget(cf.canvas(), treetok, boxit, boxit)
-
 class TAGTree(Tree):
     """
     A TAG Tree represents a lexicalized Tree Adjoining Grammar (TAG)
@@ -1921,7 +994,6 @@ class TAGTree(Tree):
         self._lex = False
         self.comment = None
         if isinstance(node_with_fs, basestring):
-            #(self.node, self.top_fs, self.bot_fs) = (node_with_fs, FeatStruct(), FeatStruct())
             self.node = node_with_fs
             self.top_fs = FeatStruct()
             self.bot_fs = FeatStruct()
@@ -1931,7 +1003,7 @@ class TAGTree(Tree):
             Tree.__init__(self, self.node, children)
         else:
             raise TypeError("%s: Expected a node value with feature"
-                            "structures and child list " % type(self).__name__)
+                            "structures and child list" % type(self).__name__)
         if isinstance(children, basestring):
             raise TypeError("%s() argument 2 should be a list, not a "
                             "string" % type(self).__name__)
@@ -1960,7 +1032,7 @@ class TAGTree(Tree):
                 clone._lex_fs = copy.deepcopy(self._lex_fs)
         return clone
 
-    def _get_node(self, name_or_attr):
+    def __get_node(self, name_or_attr):
         nodes = []
         results = []
         nodes.append(self)
@@ -1978,7 +1050,7 @@ class TAGTree(Tree):
         """
         Get the head node of the TAG Tree
         """
-        return self._get_node('head')
+        return self.__get_node('head')
 
     def set_children(self, children):
         """
@@ -2003,8 +1075,8 @@ class TAGTree(Tree):
             for key in nf.keys():
                 tf = FeatStruct()
                 if key[-2:] not in ['.t', '.b']:
-                    tf[_fs_name(morph[0][1], False)] = FeatStruct()
-                    tf[_fs_name(morph[0][1], False)][key] = nf[key]
+                    tf[global_featname(morph[0][1], False)] = FeatStruct()
+                    tf[global_featname(morph[0][1], False)][key] = nf[key]
                 else:
                     tf[key] = nf[key]
                 self._lex_fs.append(tf)
@@ -2025,13 +1097,8 @@ class TAGTree(Tree):
                     lex = TAGTree(m[0], [], 'lex')
                     head.set_children(lex)
                     all_fs = self.get_all_fs()
-                    #print all_fs
-                    #print "FS", fs
                     for f in fs:
-                        #all_fs = all_fs.unify(f)
                         stack = []
-
-                        #print f
                         for node in f:
                             for attr in f[node]:
                                 if node in all_fs:
@@ -2044,13 +1111,11 @@ class TAGTree(Tree):
                             stack = []
                             for key in keys:
                                 stack.append([f[node], key])
-                            #stack = [[f[node], key] for key in keys]
                             while len(stack) > 0:
                                 path = stack.pop()
                                 feat = path[0]
                                 for e in range(1, len(path)):
                                     feat = feat[path[e]]
-                                #feat = f[k]
                                 first_key = feat.keys()[0]
                                 if first_key[:5] == '__or_':
                                     mapping = feat[first_key].split(':')
@@ -2059,26 +1124,11 @@ class TAGTree(Tree):
                                         m_attr = mapping[1][1:-1]
                                         if not m_attr in all_fs[m_node]:
                                             all_fs[m_node][m_attr]['__or_'] = ''
-                                        #del feat[first_key]
-                                        #del f[k]
                                         m_key = all_fs[m_node][m_attr].keys()[0]
-                                        #m_value = all_fs[m_node][m_attr][m_key]
-                                        #f.clear()
-                                        #del f[k]
-                                        #f['aerfea'] = all_fs[m_node][m_attr]
                                         c_feat = all_fs[node]
                                         for e in range(1, len(path)-1):
                                             c_feat = c_feat[path[e]]
                                         c_feat[path[-1]] = all_fs[m_node][m_attr]
-                                        #print c_feat
-                                        #all_fs[node][path[1]] = all_fs[m_node][m_attr]
-                                        #print f[k]
-                                        #print all_fs
-                                        #print id(f[k])
-                                        #print id(feat), m_node, m_attr
-                                        #print all_fs[m_node][m_attr]
-                                        #print id(all_fs['D.t']['agr'])
-                                        #print id(all_fs['NP_r.b']['agr'])
                                     else:
                                         continue
                                 else:
@@ -2087,49 +1137,16 @@ class TAGTree(Tree):
                                         items = copy.copy(path)
                                         items.append(key)
                                         feat_list.append(items)
-                                    #items = [pathappend(key) for key in feat.keys()]
                                     stack += feat_list
-                            
                         
-                        #print all_fs
-                        #node = f.keys()[0]
-                        #attr = f[node].keys()[0]
-                        #if attr in all_fs[node]:
-                        
-                        #else:
-
-                        #unified = all_fs.unify(f)
-                        """
-                        if unified:
-                            print 'unified'
-                            #print f
-                            node = f.keys()[0]
-                            attr = f[node].keys()[0]
-                            print f
-                            print all_fs
-                            print node, attr
-                            if '__or_' in all_fs[node][attr]:
-                                print 111
-                            #print f.keys()
-                            all_fs = unified
-                            #print all_fs
-                        else:
-                            print 'not unified'
-                            keys = f.keys()[0]
-                            key = f[keys]
-                            for i in all_fs:
-                                if i == keys:
-                                    temp = all_fs[i]
-                                    for j in key:
-                                        result = []
-                                        child = all_fs.items()
-                                        self._find_value(all_fs, id(temp[j]), f[keys][j])
-                        """
-                    #print all_fs
-                    #print all_fs
                     self.set_all_fs(all_fs)
 
     def unify(self, fs):
+        """
+        Unify feature structure with TAG tree:
+        :param: unified feature structure
+        :type: FeatStruct
+        """
         all_fs = self.get_all_fs()
         temp = all_fs.unify(f)
         if temp:
@@ -2138,15 +1155,18 @@ class TAGTree(Tree):
             raise NameError("Unify return None")
         self.set_all_fs(all_fs)
 
-    def _find_value(self, fs, idn, cfs):
-        for i in fs:
-            if len(fs[i].keys()) > 0 and fs[i].keys()[0][0:5] == '__or_':
-                if id(fs[i]) == idn:
-                    fs[i] = cfs
-            else:
-                self._find_value(fs[i], idn, cfs)
+    #def _find_value(self, fs, idn, cfs):
+    #    for i in fs:
+    #        if len(fs[i].keys()) > 0 and fs[i].keys()[0][0:5] == '__or_':
+    #            if id(fs[i]) == idn:
+    #                fs[i] = cfs
+    #        else:
+    #            self._find_value(fs[i], idn, cfs)
 
     def get_node_name(self):
+        """
+        Get node name of root node
+        """
         return self.node
 
     def get_all_fs(self):
@@ -2185,6 +1205,10 @@ class TAGTree(Tree):
                     nodes.append(child)
 
     def leaves(self):
+        """
+        :return: leaves of this tree
+        :rtype: list
+        """
         leaves = []
         if len(self) == 0:
             leaves.append(self)
@@ -2193,31 +1217,31 @@ class TAGTree(Tree):
         return leaves
 
     def cancel_substitution(self):
+        """
+        Cancel substitution node of this tree
+        """
         if self.attr == 'subst':
             self.attr = None
         else:
-            raise TypeError("n")
+            raise TypeError("No substitution node for this tree")
 
     def get_substitution_node(self):
+        """
+        :return: substitution subtree
+        :rtype: TAGTree
+        """
         sub = []
         for leaf in self.leaves():
             if leaf.attr == 'subst':
                 sub.append(leaf)
         return sub
 
-    def at_anchor_left(self, tree):
-        tree_name = tree.node
-        self._leaves = self.leaves()
-        nodes = self.get_substitution_node()
-        for sub_node in nodes:
-            ind = self._leaves.index(sub_node)
-            left_node = self._leaves[ind-1]
-            if left_node.node == tree_name:
-                return True
-            else:
-                return False
-
     def prefix_search(self, tree_name):
+        """
+        Search node with prefix in the tree
+        :return: subtree with tree_name as prefix
+        :rtype: TAGTree
+        """
         trees = []
         name = self.node.split('_')
         prefix = name[0]
@@ -2228,17 +1252,28 @@ class TAGTree(Tree):
         return trees
 
     def delete_all_child(self):
+        """
+        Remove all child of this tree
+        """
         result = []
         while(len(self)) > 0:
             self.pop()
 
     def cancel_adjunction(self):
+        """
+        Cancel adjunction node of this tree
+        """
         if self.attr == 'foot':
             self.attr = None
         else:
-            raise TypeError("n")
+            raise TypeError("No adjunction node")
 
     def search(self, tree_name):
+        """
+        Search node with name as tree_name in the tree
+        :return: subtree with tree_name as root name
+        :rtype: TAGTree
+        """
         if self.node == tree_name:
             return self
         else:
@@ -2270,11 +1305,19 @@ class TAGTree(Tree):
         return None 
 
     def correct_name(self):
+        """
+        Get a copied tree with no name collided node
+        """
         tree = copy.deepcopy(self)
         tree.check_name([tree.node], 0)
         return tree       
 
     def check_name(self, names, count):
+        """
+        Check this tree for name collidec nodes 
+        :return: name collided number
+        :rtype: int
+        """
         for child in self:
             if child.node in names:
                 name = child.node.split("_")[0]
@@ -2285,96 +1328,158 @@ class TAGTree(Tree):
                 count = child.check_name(names, count)
         return count
 
-def _fs_name(node_name, top):
+######################################################################
+#{ Helper Functions
+#{ Parse grammar file
+######################################################################
+
+def parse_tree_list(text, fs):
+    tree_list = parse_brackets(text)
+    t = build_tree(tree_list[0], fs)
+    return t
+
+def build_tree(tree_list, fs):
+    node = parse_node(tree_list[0])
+    node_name = node[0]
+    node_attr = node[1]
+    top_fs = FeatStruct()
+    bot_fs = FeatStruct()
+    if node_name + '.t' in fs:
+        top_fs = fs[node_name + '.t']
+    if node_name + '.b' in fs:
+        bot_fs = fs[node_name + '.b']
+    if len(tree_list) == 1:
+        return TAGTree((node_name, top_fs, bot_fs), [], node_attr)
+    else:
+        sub_tree = []
+        for i in range(1, len(tree_list)):
+            sub_tree.append(build_tree(tree_list[i], fs))
+        return TAGTree((node_name, top_fs, bot_fs), sub_tree, node_attr)
+ 
+def parse_node(node_list):
+    clist = []
+    pre = node_list[0][0][0]
+    suf = node_list[0][0][2]
+    pre = pre.replace('"', '')
+    suf = suf.replace('"', '')
+    for i in range(0,2):
+        if len(node_list) > 1:
+            clist = [(node_list[2*j - 1], node_list[2 * j]) 
+                      for j in range(1, len(node_list)/2 + 1)]
+    if ord(pre[0]) == 6 and len(pre) == 1:
+        pre = u'\u03b5'.encode('utf-8')
+    
+    if len(suf) != 0:
+        pre = pre + '_' + suf
+    if (':substp', 'T') in clist:
+        attr = 'subst'
+    elif (':headp', 'T') in clist:
+        attr = 'head'
+    elif (':footp', 'T') in clist:
+        attr = 'foot'
+    else:
+        attr = None
+    return (pre, attr, clist)
+ 
+def parse_brackets(text):
+    text = '(' + text + ')'
+    lresult = []
+    ss = ''
+    for c in text:
+        if c == '(':
+            if len(ss) != 0:
+                lresult.append(lresult.pop() + ss.split())
+                ss = ''
+            lresult.append([])
+        elif c == ')':
+            last = lresult.pop()
+            if len(ss) != 0:
+                last += ss.split()
+                ss = ''
+            if len(lresult) > 0:
+                lresult.append(lresult.pop() + [last])
+            else:
+                lresult.append(last)
+        else:
+            ss += c
+    return lresult[0]
+
+
+def find_left_bracket(fstr):
+    for i in range(0, len(fstr)):
+        if fstr[i] == '[':
+            return i
+
+def match_bracket(fstr):
+    count = 0
+    for i in range(0, len(fstr)):
+        if fstr[i] == '[':
+            count += 1
+        elif count > 0 and fstr[i] == ']':
+            count -= 1
+            if count == 0:
+                return i  
+def global_featname(node_name, top):
     try:
         node_name[-1].decode('ascii')
     except UnicodeDecodeError:
         node_name = node_name[:-3]
     if top:
-        return node_name+'.'+'t'
+        return '.'.join([node_name, 't'])
     else:
-        return node_name+'.'+'b'
+        return '.'.join([node_name, 'b'])
+
+def grammar_file_parse(text):
+    """
+    Get a TAGTreeSet from grammar files
+
+    :param text is a string describing TAG trees, the form is defined in
+    UPenn Xtag project
+    """
+    calist = analyze_tree_3(analyze_tree_2(analyze_tree_1(text)))
+    arglist = analyze_tree_5(analyze_tree_4(calist))
+    tagset = TAGTreeSet()      
+    for element in arglist:
+        new_tree = parse_tree_list(element[2], element[4])
+        tree_name = element[0]
+        new_tree.set_comment(element[5]['COMMENTS'])
+        tagset[tree_name] = new_tree
+    return tagset
+
+def parse_from_files(cata, files):
+    """
+    Get the TAGTreeSet from the gram file. The file format
+    is defined in Upenn Xtag project.
+    """
+    language = 'english'
+    if not isinstance(files, basestring):
+        raise TypeError('input should be a base string')
+    tree_list = get_file_list(cata, files)
+    tagset = TAGTreeSet()
+    tagset[files] = TAGTreeSet()
+
+    file_names = tree_list[0]
+    directory = tree_list[1]
+    for fn in file_names:
+        path = os.sep.join(['xtag_grammar', language, directory, fn])
+        text = nltk.data.find(path).open().read()
+        tagset[files][fn] = TAGTreeSet()
+        tagset[files][fn] += grammar_file_parse(text)
+ 
+    return tagset
 
 def draw_trees(*trees):
     """
     Display the TAGTree in a single window.
     """
-    TAGTreeView((False,None),*trees).mainloop()
+    TAGTreeView(*trees).mainloop()
     return
 
-def _all_widget(feats, reentrances, reentrance_ids, c, name):
-
-    segments = []
-    prefix = ''
-    suffix = ''
-
-    if reentrances[id(feats)]:
-        assert not reentrance_ids.has_key(id(feats))
-        reentrance_ids[id(feats)] = repr(len(reentrance_ids)+1)
-
-    namelist = [i for i, v in feats.items() if i == name]
-    if len(namelist) > 1:
-        raise TypeError('Error')
-
-    for (fname, fval) in sorted(feats.items()):
-        display = getattr(fname, 'display', None)
-        if len(namelist) == 1:
-            if name == fname:
-                fval_repr = _fs_widget(fval, reentrances, reentrance_ids, c)
-                return SequenceWidget(c, fval_repr, align='center')
-        elif reentrance_ids.has_key(id(fval)):
-            fs = '%s->(%s)' % (fname, reentrance_ids[id(fval)])
-            tw = TextWidget(c, fs, justify='center')
-            segments.append(tw)
-        elif (display == 'prefix' and not prefix and
-              isinstance(fval, (Variable, basestring))):
-                prefix = '%s' % fval
-        elif display == 'slash' and not suffix:
-            if isinstance(fval, Variable):
-                suffix = '/%s' % fval.name
-            else:
-                suffix = '/%r' % fval
-        elif isinstance(fval, Variable):
-            fs = '%s=%s' % (fname, fval.name)
-            tw = TextWidget(c, fs, justify='center')
-            segments.append(tw)
-        elif fval is True:
-            fs = '+%s' % fname
-            tw = TextWidget(c, fs, justify='center')
-            segments.append(tw)
-        elif fval is False:
-            fs = '-%s' % fname
-            tw = TextWidget(c, fs, justify='center')
-            segments.append(tw)
-        elif isinstance(fval, Expression):
-            fs = '%s=<%s>' % (fname, fval)
-            tw = TextWidget(c, fs, justify='center')
-            segments.append(tw)
-        elif not isinstance(fval, FeatStruct):
-            fs = '%s=%r' % (fname, fval)
-            tw = TextWidget(c, fs, justify='center')
-            segments.append(tw)
-        else:
-            fval_repr = _fs_widget(fval, reentrances, reentrance_ids, c)
-            tw = TextWidget(c, '%s=' % fname, justify='center')
-            sw = SequenceWidget(c, tw, fval_repr, align='center')
-            segments.append(sw)
-    if reentrances[id(feats)]:
-        prefix = '(%s)%s' % (reentrance_ids[id(feats)], prefix)
-
-    cstack = StackWidget(c, *segments)
-    widgets = []
-    if prefix:
-        pw = TextWidget(c, prefix, justify='center')
-        widgets.append(pw)
-    bw = BracketWidget(c, cstack, color='black', width=1)
-    widgets.append(bw)
-    if suffix: 
-        sw = TextWidget(c, suffix, justify='center')
-        widgets.append(sw)
-    return SequenceWidget(c, *widgets, align='center')
-
 def remove_or_tag(feat):
+    """
+    Remove "__or_" key in feature structure when display
+    :type: FeatStruct
+    """
     keys = feat.keys()
     length = len(keys)
     for key in keys:
@@ -2393,11 +1498,29 @@ def remove_or_tag(feat):
             del feat[key]
         elif key == '__value__':
             kvalue = feat[key]
-        #    print kvalue
         else:
             remove_or_tag(feat[key])
 
-def _fs_widget(f, c, name, **attribs):
+def feat_to_widget(f, c, name, **attribs):
+    """
+    Draw a widget of the feature structure
+    :param f: feature struct
+    :type: FeatStruct
+    :param c: parent canvas
+    :type: CanvasFrame
+
+    Attributes:
+
+      - ``keep``: Display the feature structures which match the
+        input regular expression.
+        node widgets for this ``TreeWidget``.
+      - ``remove``: Remove the feature structures which match the
+        input regular expression from the canvas.
+      - ``highlight``: Highlight the feature structures which match 
+        the input regular expression.
+      - ``reg``: The input regular expression for keep, remove or
+        highlight.
+    """
     feats = copy.deepcopy(f)
     old_name = []
     for fname in feats:
@@ -2422,8 +1545,8 @@ def _fs_widget(f, c, name, **attribs):
     if 'reg' in d:
         reg = d['reg']
     s = fstr.find(name)
-    l = _find_left_bracket(fstr[s:])
-    r = _match_bracket(fstr[s:])
+    l = find_left_bracket(fstr[s:])
+    r = match_bracket(fstr[s:])
     match_str = fstr[s+l+1:s+r]
     result = match_str
 
@@ -2438,63 +1561,76 @@ def _fs_widget(f, c, name, **attribs):
             reg = reg.replace(']','')
             for i in match_list:
                 try:    
-                    result += re.compile(r'((%s\s*)+)' % reg).sub(r'<h>\1<h>', i)
+                    result += re.compile(r'((%s\s*)+)' %
+                              reg).sub(r'<h>\1<h>', i)
                 except re.error, e:
-                    widget = _parse_to_widget(match_str, c)
+                    widget = str_to_widget(match_str, c)
                     return BracketWidget(c, widget, color='black', width=1)
-            widget = _parse_to_widget(result, c, True)
+            widget = str_to_widget(result, c, True)
         elif 'keep' in d:
             fstr = match_feature(feats, reg, 0).__repr__()
             fstr = fstr.replace("'",'')
             fstr = fstr.replace('__value__=','')
             s = fstr.find(name)
-            l = _find_left_bracket(fstr[s:])
-            r = _match_bracket(fstr[s:])
+            l = find_left_bracket(fstr[s:])
+            r = match_bracket(fstr[s:])
             if l and r:
                 result = fstr[s+l+1:s+r]
             else:
                 return TextWidget(c, '[ ]', justify='center')
-            widget = _parse_to_widget(result, c)
+            widget = str_to_widget(result, c)
         elif 'remove' in d:
             fstr = match_feature(feats, reg, 1).__repr__()
             fstr = fstr.replace('__value__=','')
             fstr = fstr.replace("'",'')
             s = fstr.find(name)
-            l = _find_left_bracket(fstr[s:])
-            r = _match_bracket(fstr[s:])
+            l = find_left_bracket(fstr[s:])
+            r = match_bracket(fstr[s:])
             if l and r:
                 result = fstr[s+l+1:s+r]
             else:
                 result = match_str
-            widget = _parse_to_widget(result, c)
+            widget = str_to_widget(result, c)
     else:
-        widget = _parse_to_widget(result, c)
+        widget = str_to_widget(result, c)
     return BracketWidget(c, widget, color='black', width=1)
 
-def _parse_to_widget(fstr, c, highlight=False):
+def str_to_widget(fstr, c, highlight=False):
+    """
+    Parse the string of feature structure into a canvas widget
+    :param fstr: feat structure representation string
+    :type: string
+    :param c: parent canvas
+    :type: CanvasFrame
+    :param highlight: whether to highlight key words
+    :type: bool
+    """
     if fstr[:4] == '<h>,':
         fstr = fstr[4:]
     if fstr[-4:] == ']<h>':
         fstr = fstr[:-3]
-    #fstr = fstr.replace("<h>><h>", ">")
     fstr = fstr.replace("<h><h>", "<h>")
     fstr = fstr.replace("<h>><h>", ">")
     fstr = fstr.replace("<h>-<h>>", "->")
     wl = []
-    l = _find_left_bracket(fstr)
+    l = find_left_bracket(fstr)
     if l:
-        r = _match_bracket(fstr)
-        lw = _parse_to_widget(fstr[l+1:r], c, highlight)
+        r = match_bracket(fstr)
+        lw = str_to_widget(fstr[l+1:r], c, highlight)
         tl = []
         strlist = fstr[:l].split(',')
         for item in strlist[:-1]:
             if len(item) > 0:
                 if highlight and ('<h>' in item):
-                    tl.append(BoxWidget(c, TextWidget(c, '%s' % item.replace('<h>',''), justify='center'), outline='white', fill='yellow'))
+                    tl.append(BoxWidget(c, TextWidget(c, '%s' %
+                              item.replace('<h>',''), justify='center'),
+                              outline='white', fill='yellow'))
                 else:
                     tl.append(TextWidget(c, '%s' % item, justify='center'))
         if highlight and ('<h>' in strlist[-1]):
-            tw = BoxWidget(c, TextWidget(c, '%s' % strlist[-1].replace('<h>',''), justify='center'), outline='white', fill='yellow')
+            tw = BoxWidget(c, TextWidget(c, '%s' % 
+                           strlist[-1].replace('<h>',''), justify='center'),
+                           outline='white', fill='yellow')
         else:
             tw = TextWidget(c, '%s' % strlist[-1], justify='center')
         if not isinstance(lw, TextWidget):
@@ -2502,7 +1638,7 @@ def _parse_to_widget(fstr, c, highlight=False):
         tl.append(SequenceWidget(c, tw, lw, align='center'))
         wl.append(StackWidget(c, *tl))
         if r+1 != len(fstr):
-            wl.append(_parse_to_widget(fstr[r+1:len(fstr)], c, highlight))
+            wl.append(str_to_widget(fstr[r+1:len(fstr)], c, highlight))
     else:
         tl = []
         textl = fstr.split(',')
@@ -2514,7 +1650,9 @@ def _parse_to_widget(fstr, c, highlight=False):
                 item = item.replace('__value__=','')
                 item = item.replace("'",'')
                 if '<h>' in item:
-                    tl.append(BoxWidget(c, TextWidget(c, '%s' % item.replace('<h>',''), justify='center'), outline='white', fill='yellow'))
+                    tl.append(BoxWidget(c, TextWidget(c, '%s' % 
+                            item.replace('<h>',''), justify='center'),
+                            outline='white', fill='yellow'))
                 else:
                     tl.append(TextWidget(c, '%s' % item, justify='center'))
             return StackWidget(c, *tl)
@@ -2528,25 +1666,9 @@ def _parse_to_widget(fstr, c, highlight=False):
                 tl.append(TextWidget(c, '%s' % item, justify='center'))
             return StackWidget(c, *tl)
     cstack = StackWidget(c, *wl)
-    return cstack
+    return cstack     
 
-
-def _find_left_bracket(fstr):
-    for i in range(0, len(fstr)):
-        if fstr[i] == '[':
-            return i
-
-def _match_bracket(fstr):
-    count = 0
-    for i in range(0, len(fstr)):
-        if fstr[i] == '[':
-            count += 1
-        elif count > 0 and fstr[i] == ']':
-            count -= 1
-            if count == 0:
-                return i       
-
-def fs_widget(fs, allfs, canvas, name, **attribs):
+def feat_widget(fs, allfs, canvas, name, **attribs):
     """
     Get the widget of feature structure.
 
@@ -2557,145 +1679,35 @@ def fs_widget(fs, allfs, canvas, name, **attribs):
     widget to attach
     param: name, the node name of the feature structure
     param: attribs, the attribs of the widget
+
+    Attributes:
+
+      - ``keep``: Display the feature structures which match the
+        input regular expression.
+        node widgets for this ``TreeWidget``.
+      - ``remove``: Remove the feature structures which match the
+        input regular expression from the canvas.
+      - ``highlight``: Highlight the feature structures which match 
+        the input regular expression.
+      - ``reg``: The input regular expression for keep, remove or
+        highlight.
     """
     if fs:
-        #print allfs
-        return _fs_widget(allfs, canvas, name, **attribs)
+        return feat_to_widget(allfs, canvas, name, **attribs)
     else:
         return TextWidget(canvas, '[ ]', justify='center')
 
-def parse_from_files(cata, files):
-    """
-    Get the TAGTreeSet from the gram file. The file format
-    is defined in Upenn Xtag project.
-    """
-    language = 'english'
-    if not isinstance(files, basestring):
-        raise TypeError('input should be a base string')
-    tree_list = get_file_list(cata, files)
-    tagset = TAGTreeSet()
-    tagset[files] = TAGTreeSet()
-
-    file_names = tree_list[0]
-    directory = tree_list[1]
-    for fn in file_names:
-        path = 'xtag_grammar' + os.sep + language + os.sep + directory + os.sep + fn
-        #print path
-        text = nltk.data.find(path).open().read()
-        #text = open(path).read()
-        tagset[files][fn] = TAGTreeSet()
-        tagset[files][fn] += xtag_parser(text)
- 
-    return tagset
 
 def demo():
-
-    cata_str = nltk.data.find('xtag_grammar/english/english.gram').open().read()
+    gramfile = 'xtag_grammar/english/english.gram'
+    cata_str = nltk.data.find(gramfile).open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
     t = parse_from_files(cata, 'tree-files')
     t += parse_from_files(cata, 'family-files')
     t.set_start_fs(sfs)
-    aaa= t['family-files']['TEnx1V.trees']['\x02Enx1V']
-    #print aaa.prefix_search('NP')
-    #print tree.get_substitution_node()
-    #A = TAGTree('P',[])
-    #load()
-    #print tree.search('S_r').get_bottom_feature()
-    #print tree.search('VP').get_top_feature()
-    #print id(tree.search('VP').get_top_feature()['mode'])
-    #print id(tree.search('S_r').get_bottom_feature()['mode'])
-    #print tree.search('S_r').get_bottom_feature()
-    #print tree.search('VP').get_top_feature()
-    #print tree
-    #print t['family-files']['Tnx0ARBPnx1.trees']['nx0ARBPnx1-PRO']#.view()
-    #t.view()
+    alph_tree = t['family-files']['TEnx1V.trees']['\x02Enx1V']
 
 
 if __name__ == '__main__':
-    #demo()
-    #load()
     install()
-
-
-"""
-def debug():
-    cata = get_catalog('../xtag-english-grammar/english.gram')
-    sfs = get_start_feature(cata)
-    t = parse_from_files(cata, 'tree-files')
-    t += parse_from_files(cata, 'family-files')
-    t.set_start_fs(sfs)
-    morph = get_file_list(cata, 'morphology-files')
-    syn = get_file_list(cata, 'lexicon-files')
-    temp = get_file_list(cata, 'templates-files')
-    default = get_file_list(cata, 'syntax-default')
-    morph_path = morph[1]+morph[0][0]
-    syn_path = syn[1]+syn[0][0]
-    temp_path = temp[1]+temp[0][0]
-    default_path = default[1]+default[0][0]
-    init(morph_path, syn_path, temp_path, default_path)
-    treetok = Tree.parse('(A (walk C D) (E (F G) (H I)))')
-    treetok = graph_parse(treetok)
-    graph = DependencyGraphView(treetok, t)
-    graph.mainloop() 
-
-def graph_parse(graph):
-    if isinstance(graph, basestring):
-        node_name = graph
-        return Tree(node_name, [])
-    else:
-        node_name = graph.node
-        subtree = []
-        for i in range(0, len(graph)):
-            subtree.append(graph_parse(graph[i]))
-        return Tree(node_name, subtree)
-
-
-def _tree_to_graphseg(canvas, t, make_node, make_leaf,
-                     tree_attribs, node_attribs,
-                     leaf_attribs, loc_attribs):
-    if isinstance(t, Tree):
-        node = make_node(canvas, t.node, **node_attribs)
-        subtrees = [_tree_to_graphseg(canvas, child, make_node, make_leaf,
-                                     tree_attribs, node_attribs,
-                                     leaf_attribs, loc_attribs)
-                    for child in t]
-        return GraphSegmentWidget(canvas, node, subtrees, **tree_attribs)
-    else:
-        return make_leaf(canvas, t, **leaf_attribs)
-
-def tree_to_graphsegment(canvas, t, make_node=TextWidget,
-                        make_leaf=TextWidget, **attribs):
-    tree_attribs = {}
-    node_attribs = {}
-    leaf_attribs = {}
-    loc_attribs = {}
-
-    for (key, value) in attribs.items():
-        if key[:5] == 'tree_': tree_attribs[key[5:]] = value
-        elif key[:5] == 'node_': node_attribs[key[5:]] = value
-        elif key[:5] == 'leaf_': leaf_attribs[key[5:]] = value
-        elif key[:4] == 'loc_': loc_attribs[key[4:]] = value
-        else: raise ValueError('Bad attribute: %s' % key)
-    return _tree_to_graphseg(canvas, t, make_node, make_leaf,
-                                tree_attribs, node_attribs,
-                                leaf_attribs, loc_attribs)
-
-
-class TAGTreeSegmentWidget(TreeSegmentWidget):
-    A canvas widget that displays a single segment of a hierarchical
-    TAG tree, inherit from ``TreeSegmentWidget``, Each ``TAGTreeSegmentWidget``
-    contains an extra top feature strucuture and a bottom feature structure
-    than the ``TreeSegmentWidget``.
-    def __init__(self, canvas, node, subtrees, top_fs, bot_fs, **attribs):
-        TreeSegmentWidget.__init__(self, canvas, node, 
-                                      subtrees, **attribs)
-        self._top_fs = top_fs
-        self._bot_fs = bot_fs
-
-    def top_fs(self):
-        return self._top_fs
-
-    def bot_fs(self):
-        return self._bot_fs    
-"""
