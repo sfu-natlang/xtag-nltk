@@ -10,7 +10,7 @@
 
 from feature import *
 from nltk.featstruct import *
-import test
+import LL1
 
 ###########################################
 # LL Parser for catalog file ##############
@@ -853,8 +853,8 @@ def analyze_tree_1(s):
                 # None is a placeholder for those added in later phases
                 xtag_trees.append([None,None,single_tree.strip(),option.strip(),None,None])
     ############### Temporal Patch ##################
-    trees = test.analyze_tree_file(s)
-    for i in range(0,trees):
+    trees = LL1.analyze_tree_file(s)
+    for i in range(0,len(trees)):
         xtag_trees[i][5] = trees[i][0][1]
         
     return xtag_trees
