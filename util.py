@@ -47,9 +47,7 @@ def restore_from_disk(fp):
     :return: The restored object
     :rtype: Any object
     """
-    #fp = open(filename,'rb')
     obj = pickle.load(fp)
-    #fp.close()
     return obj
 
 def install():
@@ -60,13 +58,12 @@ def install():
     try:
         nltk.data.find('xtag_grammar/'+language+'/pickles/tagtreeset.pickle')
     except LookupError:
-        update()
+        update(language)
 
-def update():
+def update(language):
     """
-    Update pickle file of the TAG forest to speed up.
+    Update the TAG trees pickle file to speed up.
     """
-    language = 'english'
     for path_item in nltk.data.path:
         d = 'xtag_grammar/'+language
         p = os.path.join(path_item, *d.split('/'))
@@ -492,6 +489,7 @@ class TAGTreeSetView(object):
         self._tagview.pack(expand=1, fill='both')
         self._tw = TAGTreeView(None, parent=self._top)
         self._tw.pack(expand=1, fill='both', side = LEFT)
+        self.sfs_tree ={}
 
     def return_pressed(self, event):
         """
@@ -520,12 +518,16 @@ class TAGTreeSetView(object):
                              % type(self).__name__)
         if isinstance(tree, type(self._trees)):
             return
-        if self._add_fs:
+        print self.sfs_tree
+        print tree, id(tree)
+        if not tree.start_feat:
             self._sfs_button['text'] = 'Delete Start Features'
             self.add_start_fs(tree, self._trees.start_fs)
+            tree.start_feat = True
         else:
             self._sfs_button['text'] = 'Add Start Features'
             self.del_start_fs(tree)
+            tree.start_feat = False
         self._add_fs = not self._add_fs
 
     def add_start_fs(self, tree, start_fs):
@@ -993,6 +995,7 @@ class TAGTree(Tree):
         self.attr = attr
         self._lex = False
         self.comment = None
+        self.start_feat = False
         if isinstance(node_with_fs, basestring):
             self.node = node_with_fs
             self.top_fs = FeatStruct()
@@ -1009,6 +1012,7 @@ class TAGTree(Tree):
                             "string" % type(self).__name__)
 
     def set_comment(self, comment):
+        comment = comment.replace("\\\"","\"")
         self.comment = comment
 
     def draw(self):
