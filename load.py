@@ -891,11 +891,14 @@ def analyze_tree_1(s):
 
 def analyze_tree_2(xtag_trees):
     """
-    analyze_tree_2() -> list
-
     Given the result of analyze_tree_1(), this function will further
     split the options string into several small strings, each is started by
     a ':' and ended by the start of another option or by the end of the string.
+
+    :param xtag_trees: The result of analyze_tree_1
+    :type xtag_trees: list
+    :return: An intermediate result
+    :rtype: list
     """
     for entry in xtag_trees:
         options_str = entry[3]
@@ -951,11 +954,14 @@ def analyze_tree_2(xtag_trees):
 
 def analyze_tree_3(xtag_trees):
     """
-    analyze_tree_3() -> list
-
     Given the result of analyze_tree_2(), this function will extract
     the feature structure specifications into a separate list, and then extract
-    RHS as well as LHS for further use.  
+    RHS as well as LHS for further use.
+
+    :param xtag_trees: The result of analyze_tree_2
+    :type xtag_trees: list
+    :return: An intermediate result
+    :rtype: list
     """
     pattern = "UNIFICATION-EQUATIONS"
     pattern_len = len(pattern)
@@ -1026,10 +1032,13 @@ def get_path_list(s):
 
 def analyze_tree_4(xtag_trees):
     """
-    analyze_tree_4() -> list
-
     Given the result of analyze_tree_3(), this function will make
-    use of FeatStruct, and build a feature structure dictionary.  
+    use of FeatStruct, and build a feature structure dictionary.
+
+    :param xtag_trees: The result of analyze_tree_3
+    :type xtag_trees: list
+    :return: An intermeidate result
+    :rtype: list
     """
     for xtag_entry in xtag_trees:
         features =  {}
@@ -1069,11 +1078,12 @@ def analyze_tree_4(xtag_trees):
 
 def analyze_tree_5(xtag_trees):
     """
-    analyze_tree_5() -> list
-
     Given the result of analyze_tree_4(), this function will continue
     to build the feature structure, and in this phase we must add all values
-    even if they are not defined by the tree grammar.  
+    even if they are not defined by the tree grammar.
+
+    :param xtag_trees: The result of analyze_tree_4
+    :type list:
     """
     for xtag_entry in xtag_trees:
         features = xtag_entry[4]
@@ -1317,14 +1327,17 @@ def word_to_features(word):
     # of which is a tuple. The element of the list is the morph of the word.
     # throw the exception.
     """
-    word_to_features(word) -> list
-
     Give a word of any form, e.g. take, took, taken, taking, this function will
     return a list of all possible features of this word. The return value is a
     list containing all possibilities.
 
     To run this function, the initialization procedure init() must be called, or
     an exception will be thrown.
+
+    :param word: A word that you want to search for
+    :type word: str
+    :return: A list of features as well as trees for that word
+    :rtype list:
     """
     result = []
     morph_ret = word_to_morph(word)
@@ -1365,14 +1378,35 @@ def word_to_features(word):
             
     return result
 
-def tree_to_words(tree_name):
+def tree_to_words(name):
+    """
+    Search for words applicable to a given tree name or family name. This is
+    basically a reverse search in the index file, using tree name or famile name
+    as index.
+
+    :param tree_name: Tree name or family name
+    :type tree_name: str
+    :return: A list of words (or phrases) together with the POS
+    :rtype: list(list(tuple(str,str)))
+    """
     global dicts
-    if not dicts[3].has_key(tree_name):
+    if not dicts[3].has_key(name):
         return []
     else:
-        return dicts[3][tree_name]
+        return dicts[3][name]
 
 def make_pos_mapping(s):
+    """
+    Make a dictionary mapping the pos tag in syntax to the pos tag in the morph.
+    The mapping relation is coded using the following form:
+
+    [POS in syntax] -> [POS in morph] (, [another POS])*
+
+    :param s: The content of the mapping file
+    :type s: str
+    :return: A dictionary repersenting the mapping relation
+    :rtype: dict
+    """
     lines = s.splitlines()
     mapping = {}
     for l in lines:
@@ -1390,18 +1424,24 @@ def make_pos_mapping(s):
     return mapping
 
 def init(morph,syntax,temp,default,mapping):
-    # This function will initiate the environment where the XTAG grammar
-    # system will run.
-    # morph is the path of trunc_morph.flat
-    # syntax is the path of syntax-coded.flat
-    # temp is the path of templates.lex (there are two of them, both are OK)
-    # All path can be absolute path or relative path
     """
-    init(morph,syntax,temp) -> None
+    Initialize the environments for XTAG, including the morphology database,
+    syntax database, template database, default grammar, and a mapping relation.
+    Functions such as word_to_features() and feature_to_words() and
+    check_name_equlaity(), etc. must be called after initialization.
 
-    Given the three dictionary files, the init() will initialize the environment
-    for word_to_features() and other support functions to function. This should
-    be the first call before any other calls to word_to_features().
+    :param morph: A string read from the morphology file
+    :type morph: str
+    :param syntax: A string read from the syntax file
+    :type syntax: str
+    :param temp: A string read from the template file
+    :type temp: str
+    :param default: A string read from the default grammar file
+    :type default: str
+    :param mapping: A string read from the mapping file
+    :type mapping: str
+
+    The global variable dicts are changed in the function, and nothing is returned
     """
     global inited
     global dicts
