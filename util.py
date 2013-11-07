@@ -776,6 +776,7 @@ class CommentWidget(object):
 
     """
     def __init__(self, canvas, parent, **attribs):
+        self._attr = {}
         for (i, j) in attribs.items():
             if i in ['xposition', 'yposition', 'width']:
                 self._attr[i] = j
@@ -803,7 +804,6 @@ class CommentWidget(object):
             self.tri = TextWidget(self.canvas, 
                                   u'\u25bc'.encode('utf-8') + '    COMMENTS')
             self.tri.bind_click(self.collapse)
-            print self.viewer._trees
             comment = TextWidget(self.canvas, self.viewer._trees[0].comment, 
                                   width=self._attr['width']-40)
             hspace1 = SpaceWidget(self.canvas, self._attr['width'], 0)
@@ -1610,10 +1610,10 @@ def str_to_widget(fstr, c, highlight=False):
     if fstr[-4:] == ']<h>':
         fstr = fstr[:-3]
     fstr = fstr.replace("<h><h>", "<h>")
-    wl = []
     fstr = fstr.replace("<h>><h>", ">")
-    l = find_left_bracket(fstr)
     fstr = fstr.replace("<h>-<h>>", "->")
+    wl = []
+    l = find_left_bracket(fstr)
     if l:
         r = match_bracket(fstr)
         lw = str_to_widget(fstr[l+1:r], c, highlight)
