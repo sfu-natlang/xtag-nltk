@@ -13,6 +13,6 @@ except ImportError:
     warnings.warn("nltk.xtag package not loaded "
                   "(please install Tkinter library).")
 else:
-    from draw import Lexview
+    from draw import LexView
     from util import (TAGTreeSegmentWidget, TAGTReeSetView,
                       TAGTreeWidget, TAGTreeView)
