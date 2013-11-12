@@ -1,14 +1,14 @@
-﻿Hello everyone. Now I will have an introduction about the XTAG Grammar Viewer. It is a fascinating piece of code written in Python, and the main goal of this tool is to make it easier to explore into the XTAG grammar. But before we get deep into that thing, first we need to know what XTAG is.
+﻿Hello. I will introduce the Python-based XTAG Grammar Viewer that was developed by Ziqi Wang, Haotian Zhang and Anoop Sarkar at the SFU Natural Language lab. Our XTAG grammar viewer can be used to view the wide-coverage English grammar that was developed as part of the XTAG Project at UPenn. The viewer is built on top of the Natural Language Toolkit, NLTK, and we hope it will become part of NLTK in a future release.
 
-The XTAG project is a research project on natural language grammars. You can just Google the key words 'the XTAG project', and the first result should be a link to the proper page. And from that page we can see an introduction to the XTAG telling us what it does: XTAG is an on-going project to develop a wide-coverage grammar for English using a lexicalized Tree Adjoining Grammar (TAG) formalism. XTAG also serves as an system for the development of TAGs and consists of a parser, an X-windows grammar development interface and a morphological analyzer. This is exactly what we have, and what's more, now the XTAG system is under development at SFU in Canada, and we have more than just English grammars; Some Korean grammar are on the way.
+The XTAG project is a research project on natural language grammars. You can just Google the key words 'the XTAG project', and the first result should be a link to the proper page. And from that page we can see an introduction to the XTAG: it was a project to develop a wide-coverage grammar for English using the lexicalized Tree Adjoining Grammar (TAG) formalism. 
 
-OK, so now let's start using the XTAG grammar viewer. Our code is available on Github, and it requires NLTK to be installed. 
+So now let's start using the XTAG grammar viewer. Our code is available on Github, and it requires NLTK to be installed. 
 
-First you need to download the XTAG grammar and train it under the nltk data directory, and fortunately you do not need to do this manually, since we have prepared a script file to do this. The script file can be downloaded from the github repository of the SFU Natural Language Lab. We have an instruction here. 
+First you need to download the XTAG grammar and install it into the nltk data directory. We have an install script to do this which can be downloaded from the github repository of the SFU Natural Language Lab. Go to github.com/sfu-natlang/xtag-english-grammar and follow the Install Instructions in the readme file there.
 
-After downloading the install.sh file then you can run that script, it will automatically help you to download the grammars and install them. It takes a couple of seconds to train and save since we have large amount of entries to analyze. Ok now it is done.
+After downloading the install.sh file, run that script. It will automatically help you to download the grammars and install them. It takes a couple of seconds to read the grammar and save it. Ok now it is done.
 
-The second step is to check out the grammar viewer code on github. It is very easy, and the code can be run under any directory. Just put it somewhere, and run python draw.py, waiting for several seconds, and now you can see the main window.
+The second step is to check out the grammar viewer code on github. Go to github.com/sfu-natlang/xtag-nltk and download the zip file containing this code. Put it somewhere convenient, and run python draw.py. Wait for a few seconds and then you will see the main window.
 
 The window is divided into four parts. At the very top is an input box and a selection box. These two are used to input or select words. The middle left is a list box, which is used to select trees to display. The middle right is the canvas, on which the trees and feature structures are drawn. And on the bottom we have some buttons and text box, and they are small tools to help us look at the grammar more clearly.
 
@@ -20,10 +20,10 @@ For example in this tree now we can see there are three types of nodes here, the
 
 Instead of eliminating features, we can also add features. Click the add start feature button at the bottm, you can add the start feature to the top part of the root node.
 
-Besides we can also do a filtering on the feature entries using regular expressions. On the bottom text box you can type in a regular expression, such as 'as', and then click 'remove', as you can see all feature entries with a substring 'as' is removed. And if you click keep, then all qualified entries are kept. Similarly if you click highlight then the entries are highlighted. Generally speaking any valid regular expression to python's re library can be accepted.
+Besides we can also filter the feature structures using regular expressions. On the bottom text box you can type in a regular expression, such as 'assign-*', and then click 'remove', as you can see all feature entries with a regexp 'assign-*' is removed. And if you click keep, then all qualified entries are kept. Similarly if you click highlight then the entries are highlighted. Any valid regular expression to python's re library can be accepted.
 
-On the top of the window, you can type in a word or some words, and click the search button. Then all trees applicable to this word is shown on the middle left. 
+On the top of the window, you can type in a word or some words, and click the search button. Then all trees applicable to this word is shown on the middle left.
 
-Reversely when you are viewing trees, you can also click the selection box on the top, and you shall  see a list of words available for this tree. Just choose some words on the selection box, then click select button, the effect is same as typing in the word and click search.
+When you are viewing trees, you can also click the selection box on the top, and you will see a list of words available for this tree. Just choose some words on the selection box, then click select button, the effect is same as typing in the word and click search.
 
-OK, that is almost all about the XTAG grammar viewer. We have a parser under development, and it should come out early next year. Also if you find some bugs in the code or in the grammar, then you are welcomed to report it to SFU Natural Language Lab. This is research assistant Ziqi speaking. Thank you for watching this video.
+We have a TAG parser under development, and it should come out early next year. Also if you find some bugs in the code or in the grammar, then please create an issue on our github repository pages. This is research assistant Ziqi speaking. Thank you for watching this video.
