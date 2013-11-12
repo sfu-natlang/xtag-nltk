@@ -14,5 +14,5 @@ except ImportError:
                   "(please install Tkinter library).")
 else:
     from draw import LexView
-    from util import (TAGTreeSegmentWidget, TAGTReeSetView,
-                      TAGTreeWidget, TAGTreeView)
+    from util import (TAGTreeSegmentWidget, TAGTreeSetView,
+                      TAGTreeWidget, TAGTreeView, TAGTreeSet)
