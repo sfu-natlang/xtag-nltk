@@ -174,8 +174,9 @@ class TAGTreeView(TreeView):
         """
         Show comment of selected TAG tree
         """
+        width = len(self._trees[0].leaves())*140 + 230
         self._cframe.add_widget(self.treecomment[id(self._trees[0])].widget(),
-                                750, 0)
+                                width, 0)
 
         trees = self._trees
         show = self.show_fs
@@ -203,7 +204,6 @@ class TAGTreeView(TreeView):
             widget['xspace'] = 70
             self._widgets.append(widget)
             self._cframe.add_widget(widget, 0, 0)
-
         
         self._layout()
         self._cframe.pack(expand=1, fill='both', side = LEFT)
@@ -219,20 +219,21 @@ class TAGTreeView(TreeView):
         :param trees: a list of tree segments
         :type: list
         """ 
+        self._trees = trees
         self.attribs = attribs
         if trees and isinstance(trees[0], TAGTree): 
             if self.oldcomment:
                 self._cframe.destroy_widget(self.oldcomment.widget()) 
             self.treecomment[id(trees[0])] = CommentWidget(self._cframe.canvas(),
-                                                           self,width=300)
+                                                           self,width=500)
             self.oldcomment = self.treecomment[id(trees[0])]
-            self._cframe.add_widget(self.oldcomment.widget(), 750, 0)
+            width = len(trees[0].leaves())*140 + 230
+            self._cframe.add_widget(self.oldcomment.widget(), width, 0)
         else:
             if self.oldcomment:
                 self._cframe.destroy_widget(self.oldcomment.widget())
                 self.oldcomment = None
 
-        self._trees = trees
         self.show_fs = show
         for i in self._widgets:
             self._cframe.destroy_widget(i)
@@ -788,10 +789,16 @@ class CommentWidget(object):
         self.canvas = canvas
         self.attribs = attribs
         self.viewer = parent
-        self.tri = TextWidget(canvas, u'\u25b6'.encode('utf-8')+'    COMMENTS')
+        self.tri = TextWidget(canvas, u'\u25bc'.encode('utf-8')+'    COMMENTS')
         self.tri.bind_click(self.collapse)
-        self.show = False
-        self.stack = StackWidget(canvas, self.tri, **attribs)
+        comment = TextWidget(self.canvas, self.viewer._trees[0].comment, 
+                                  width=self._attr['width']-40)
+        hspace1 = SpaceWidget(self.canvas, self._attr['width'], 0)
+        hspace2 = SpaceWidget(self.canvas, self._attr['width'], 0)              
+        tstack = StackWidget(self.canvas, hspace1, comment, hspace2)
+        box = BoxWidget(self.canvas, tstack)
+        self.stack = StackWidget(self.canvas, self.tri, box, align='left')
+        self.show = True
 
     def widget(self):
         return self.stack
@@ -1015,7 +1022,10 @@ class TAGTree(Tree):
 
     def set_comment(self, comment):
         comment = comment.replace("\\\"","\"")
-        self.comment = comment
+        if len(comment) == 0:
+            self.comment = "No Comments"
+        else:
+            self.comment = comment
 
     def draw(self):
         """
