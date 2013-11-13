@@ -9,6 +9,8 @@
 
 
 from LL1 import jump_over_space
+from LL1 import check_symbol
+from LL1 import is_valid_string_component
 from nltk.featstruct import FeatStruct
 import re
 import copy
@@ -371,34 +373,13 @@ def merge_fs(fs1,fs2):
 # Parse Feature ##############
 ##############################
 
-def check_symbol(s,next_index,symbol):
-    """
-    Check whether we have got a defined symbol in the grammar. Return False if
-    not, or return the next_index after this symbol.
-
-    :param s: The string need to be checked
-    :type s: str
-    :param next_index: Index on the string
-    :type next_index: integer
-    :param symbol: The symbol to be checked against
-    :type symbol: str
-    """
-    try:
-        next_index = jump_over_space(s,next_index)
-        if s[next_index:next_index + len(symbol)] == symbol:
-            return next_index + len(symbol) # We must ignore the symbol
-    except IndexError:
-        return False
-    else:
-        return False
-
 def parse_feature_node(s,next_index=0):
     next_index = jump_over_space(s,next_index)
     start_index = next_index
     while True:
         # Alnum and '-' are both legal characters inside a node
         ch = s[next_index]
-        if ch.isalnum() or ch == '-' or ch == '_':
+        if is_valid_string_component(ch):
             next_index += 1
         else:
             break
@@ -422,18 +403,23 @@ def parse_feature_value(s,next_index=0):
     next_index = jump_over_space(s,next_index)
     start_index = next_index
     while True:
+        # Everything can be a value, as long as there is no space.
         if not s[next_index].isspace():
             next_index += 1
         else:
             break
     feature_value = s[start_index:next_index]
+    # If we get nothing then just return None as feature value, and next_index
+    # is the index of next character which is not 0
     if feature_value == '':
         feature_value = None
     feature_value = feature_value.split('/')
     return (feature_value,next_index)
 
 def parse_feature_path(s,next_index=0):
+    # A path is a list of nodes (node name)
     path = []
+    # We are expecting a '<'
     next_index = check_symbol(s,next_index,'<') # Already changed index here
     
     if next_index == False:
@@ -454,17 +440,27 @@ def parse_feature_lhs(s,next_index=0):
     path = []
     node_1,temp_index = parse_feature_node(s,next_index)
     if node_1 == None:
+        # Push back whatever has been read, return next_index
         return parse_feature_path(s,next_index)
     else:
         path.append(node_1)
-        next_index = check_symbol(s,temp_index,'.')
-        if next_index == False:
+        next_index_dot = check_symbol(s,temp_index,'.')
+        next_index_colon = check_symbol(s,temp_index,':')
+        # Not a '.' and not a ':', i.e. not a valid LHS
+        if next_index_dot == False and next_index_colon == False:
             return None, None   # next_index should not be used
-        node_2,next_index = parse_feature_node(s,next_index)
-        path.append(node_2)
-        next_index = check_symbol(s,next_index,':')
-        if next_index == False:
-            return None, None   # Same as avove
+
+        # If it is node_1.node_2:path then we need to get node_2
+        elif next_index_dot != False:
+            node_2,next_index = parse_feature_node(s,next_index_dot)
+            path.append(node_2) # node_2 should be pushed into the path list
+            # We always want to have a ????node:path at the end
+            next_index = check_symbol(s,next_index,':')
+            if next_index == False:
+                return None, None   # Same as above
+        else: # There is a ':' after node_1
+            next_index = next_index_colon
+            
         sub_path,next_index = parse_feature_path(s,next_index)
         path += sub_path
         return path,next_index
@@ -493,9 +489,10 @@ def parse_feature(s):
     top -> line*
     line -> lhs = rhs
     lhs -> node.node:path
+    lhs -> node:path
     lhs -> path
     path -> <node ( node)*>
-    node -> [string with only alpha and number]
+    node -> [string with only alpha and number and '-']
     rhs -> value
     rhs -> lhs
     value = [string with no space]
@@ -506,9 +503,8 @@ def parse_feature(s):
         if l == '':
             continue
         else:
-            # In order to make it halt at the end of the string
+            # Add several spaces to make it halt at the end of the string
             features.append(parse_feature_line(l + ' '))
-            print parse_feature_line(l + ' ')
     return ('top',features)
             
 
@@ -1091,18 +1087,168 @@ def debug_test_contain():
 
 def debug_parse_feature():
     temp = parse_feature("""S_r.b:<mode> = VP.t:<mode>
-S_r.t:<mode> = ind/inf
-S_r.b:<comp> = nil
-S_r.b:<tense> = VP.t:<tense>
-S_r.t:<inv> = -
-NP_r.b:<wh> = NP_f.t:<wh>
-NP_r.b:<agr> = NP_f.t:<agr>
-NP_r.b:<case> = NP_f.t:<case>
-S_r.b:<agr> = VP.t:<agr>
-S_r.b:<assign-case> = VP.t:<assign-case>""")
+                            S_r.t:<mode> = ind/inf
+                            S_r.b:<comp> = nil
+                            S_r.b:<tense> = VP.t:<tense>
+                            S_r.t:<inv> = -
+                            NP_r.b:<wh> = NP_f.t:<wh>
+                            NP_r.b:<agr> = NP_f.t:<agr>
+                            NP_r.b:<case> = NP_f.t:<case>
+                            S_r.b:<agr> = VP.t:<agr>
+                            S_r:<assign-case> = VP.t:<assign-case>""")
+    for i in temp[1]:
+        print i
 
 if __name__ == '__main__':
     #debug_special_unify()
     #debug_test_contain()
-    debug_parse_feature()
-                    
+    #debug_parse_feature()
+    pass
+
+class TagFeatStruct:
+    """
+    Define some terminal:
+        entry: A key-value combination in the dictionary
+        entry name: The left hand side of an entry
+        entry value: The right hand side of an entry
+        entries: A set of entry, i.e. a TagFeatStruct
+        publisher: If a publisher changes then it will notify all subscribers
+        subscriber: It will be notified it a registered publisher changes
+        
+        path: A list of 
+    """
+    def parse_line(self,s):
+        return parse_feature_line(s)
+
+    def parse_lhs(self,s):
+        return parse_feature_lhs(s)
+
+    def parse_rhs(self,s):
+        return parse_feature_rhs(s)
+
+    def parse_line_and_add(self,s):
+        feature_entry = parse_line(self,s)
+
+    def keys(self):
+        return self.fs.keys()
+    def values(self):
+        return self.fs.values()
+    def has_key(self,key):
+        return self.fs.has_key(key)
+
+    def __init__(self):
+        self.fs = FeatStruct()
+        self.subscriber = {}
+        self.history_id = []
+    def __getitem__(self,key):
+        return self.fs[key]
+    def __setitem__(self,key,value):
+        self.fs[key] = value
+    def __repr__(self):
+        return repr(self.fs)
+
+    def get_entry_value(self,path):
+        """
+        Retrieve an object in the feature structure through a apth.
+        If the object is not found then just return None.
+        
+        :param path: A path from the root to the bottom
+        :type path: list(str)
+        :return: An entry value, it may be a primitive, or a complex
+        :rtype: depends on the actual structure, or None
+        """
+        path_len = len(path)
+        if path_len == 0:
+            return None
+        elif path_len == 1:
+            return self.fs[path[0]]
+        else:
+            return self.fs[path[0]].get_entry_value(path[1:])
+        
+    def add_subscriber(self,path,receiver):
+        path_len = len(path)
+        if path_len == 0: # Nothing is done
+            return
+        elif path_len == 1:
+            publisher = self.fs
+        else:
+            publisher = self.get_entry_value(path[:-1]) # except the last one
+        if publisher == None:
+            raise KeyError('No such path exist: %s' % (str(path[:-1])))
+        # Register with the object. Once a value change will be taken, it will
+        # notify all subscribers.
+        pub_entry_name = path[-1]
+        if publisher.subscriber.has_key(pub_entry_name):
+            publisher.subscriber[pub_entry_name].append(receiver)
+        else:
+            publisher.subscriber[pub_entry_name] = [receiver]
+        return
+
+    def change_entry_value(self,path,new_entry_value,pub_id=None):
+        # This means there is a circle
+        if pub_id in history_id:
+            return
+        
+        path_len = len(path)
+        if path_len == 0:
+            return
+        elif path_len == 1:
+            entries = self.fs
+        else:
+            entries = self.fs.get_entry_value(path[:-1])
+        if entries == None:
+            raise KeyError('No such path exist: %s' % (str(path[:-1])))
+        # We do not care whether this name exists, if it doesn't then just
+        # create it. So it is similar to add_node_by_path
+        entry_name = path[-1]
+        entries[entry_name] = new_entry_value
+        # This entry name is registered with some subscribers
+        if subscribers.has_key(entry_name):
+            # record which suber we have already notified, such that if a
+            # notification comes with an id in this list we know this is a
+            # circle, and will not notify anymore.
+            # Also this must be created in the namespace of a object, since
+            # if this function is called again we cannot get the previous
+            # value of history_id. But if it is in the object functions can
+            # share the value
+            self.history_id = []
+            sub_list = subscribers[entry_name]
+            for i in sub_list:
+                history_id.append(id(i)) # Yes, it is the id of the element
+                i.change_entry_value(entry_name,new_entry_name)
+
+        # All complete, we need to clear this
+        self.history_id = []
+        return
+        
+    def add_node_by_path(self,path,rhs):
+        path_len = len(path)
+        if path_len == 0:
+            return  # Don't do anything, keep consistent with the operation
+        if path_len > 1: # This is not a bottom-most level
+            if not self.fs.has_key(path[0]):
+                self.fs[path[0]] = TagFeatStruct()
+                self.fs[path[0]].add_node_by_path(path[1:],rhs)
+            else:
+                self.fs[path[0]].add_node_by_path(path[1:],rhs)
+        else: # We have reached the bottom-most level, i.e. path_len == 1
+            self.fs[path[0]] = rhs
+        return
+    def parse_and_add_node(self,s):
+        line = self.parse_line(s)
+        # line = tuple(tuple(list(str),tuple(str,list(str))),int)
+        lhs = line[0][0] # The path list
+        rhs = line[0][1] # A tuple, first element is the type of value
+        if rhs[0] == 'val': # A single value without any reference
+            # Also it could be a list, the disjunction
+            # We just add the list as a value. Generally sepaking all
+            # terminal node could potentially be a list, we treat it as a list
+            self.add_node_by_path(lhs,rhs[1])
+        elif rhs[0] == 'ref': # Refers to other values
+            suber = 
+        return
+    
+a = TagFeatStruct()
+a.add_node_by_path(['qwe','wzq','rty'],'123')
+a.parse_and_add_node('S_r.t:<mode> = ind/inf ')
+print a.get_entry_value(['S_r','t'])
