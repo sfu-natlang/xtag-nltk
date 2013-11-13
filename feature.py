@@ -1244,8 +1244,8 @@ class TagFeatStruct:
             # We just add the list as a value. Generally sepaking all
             # terminal node could potentially be a list, we treat it as a list
             self.add_node_by_path(lhs,rhs[1])
-        elif rhs[0] == 'ref': # Refers to other values
-            suber = 
+#        elif rhs[0] == 'ref': # Refers to other values
+#            suber = 
         return
     
 a = TagFeatStruct()
