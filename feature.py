@@ -1251,4 +1251,4 @@ class TagFeatStruct:
 a = TagFeatStruct()
 a.add_node_by_path(['qwe','wzq','rty'],'123')
 a.parse_and_add_node('S_r.t:<mode> = ind/inf ')
-print a.get_entry_value(['S_r','t'])
+#print a.get_entry_value(['S_r','t'])
