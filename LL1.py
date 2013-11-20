@@ -1,3 +1,184 @@
+
+class Pattern:
+    """
+    A pattern is just a reduced version of regular expression.
+
+    Please note that this module will not try to find the best matching, i.e.
+    the longest matching. However, it does find the longest matching in each
+    node. For example, in a concatenation node
+    """
+    def __init__(self,child_list,pattern_type=0):
+        """
+        type == 0: Simple set of words (characters)
+        type == 1: Concatenation
+        type == 2: Disjunction
+        type == 3: Star
+        """
+        self.child = child_list
+        self.type = pattern_type
+        self.type_dict = {0: self.match_basic, 1: self.match_concatenation,
+                          2: self.match_disjunction,
+                          3: self.match_star, 4: self.match_add}
+        return
+    def __add__(self, rhs):
+        """
+        For two Pattern instances, addition makes sense only if they are of
+        the same type. In this case the result is a new Pattern whose type
+        is the type of the two operands, and the child is just a merge
+        of the two operands.
+
+        For one Pattern instance and another object, if the object is a list
+        then just merge the list will child, and there is no check whether
+        the resuting Pattern is a valid one. When the object is a string
+        then just add the string into the child. Also we do not check about
+        the validity of the resuting Pattern.
+        """
+        new_list = self.child[:] # Do a full copy
+        if isinstance(rhs,Pattern):
+            if self.type != rhs.type:
+                raise TypeError(
+                    'Only Patterns of the same type can do addition')
+            add_list = rhs.child
+        elif isinstance(rhs,list):
+            add_list = rhs
+        elif isinstance(rhs,str):
+            add_list = [rhs]
+
+        for i in add_list:
+            if i not in new_list:
+                new_list.append(i)
+
+        return Pattern(new_list,self.type)
+
+    def print_tree(self,table=0):
+        ret = ' ' * table +  ('<Pattern Type %d>' % (self.type))
+        if self.type == 0:
+            ret += '\n' + ' ' * (table + 4) + str(self.child)
+        else:
+            for i in self.child:
+                ret += '\n' + i.print_tree(table=table+4)
+        return ret
+    
+    def __repr__(self):
+        return self.print_tree()
+
+    def __and__(self,other):
+        if self.type == 1 and other.type == 1:
+            return Pattern(self.child + other.child,1)
+        elif self.type == 1:
+            # The new pattern is to add rhs into the child list of lhs
+            return Pattern(self.child,1) + [other]
+        elif other.type == 1:
+            return Pattern(other.child,1) + [self]
+        else:
+            return Pattern([self,other],1)
+
+    def __or__(self,other):
+        if self.type == 2 and other.type == 2:
+            return Pattern(self.child + other.child,2)
+        elif self.type == 2:
+            return Pattern(self.child,2) + [other]
+        elif other.type == 2:
+            return Pattern(other.child,2) + [self]
+        else:
+            return Pattern([self,other],2)
+
+    def star(self):
+        if self.type == 3:
+            return self
+        else:
+            return Pattern([self],3)
+
+    def add(self):
+        if self.type == 4:
+            return self
+        else:
+            return Pattern([self],4)
+
+    def match_basic(self,s,next_index=0):
+        max_length = -1
+        success_str = None
+        for i in self.child:
+            # Only accept string
+            if not isinstance(i,str):
+                raise ValueError('Child in a type 0 pattern must be string')
+            length = len(i)
+            try:
+                test_str = s[next_index:next_index + length]
+            except IndexError:
+                continue
+            # If we find a match then just record it
+            if test_str == i and max_length < length:
+                max_length = length
+                success_str = i
+        if max_length != -1:
+            return (success_str,next_index + max_length)
+        else:
+            return (False,next_index)
+
+    def match_concatenation(self,s,next_index=0):
+        # If match fails just return this
+        next_index_bak = next_index
+        success_str = ''
+        for i in self.child:
+            ret = i.get_match(s,next_index)
+            if ret[0] == False:
+                return (False,next_index_bak)
+            else:
+                next_index = ret[1]
+                success_str += ret[0]
+        return (success_str,next_index)
+
+    def match_disjunction(self,s,next_index=0):
+        max_length = -1
+        success_str = None
+        for i in self.child:
+            
+            ret = i.get_match(s,next_index)
+            if ret[0] != False and len(ret[0]) > max_length:
+                max_length = len(ret[0])
+                success_str = ret[0]
+            print ret[0]
+                
+        if max_length != -1:
+            return (success_str,next_index + max_length)
+        else:
+            return (False,next_index)
+            
+
+    def match_star(self,s,next_index=0):
+        self.type = 1
+        success_str = ''
+        while True:
+            ret = self.get_match(s,next_index)
+            if ret[0] == False:
+                break
+            else:
+                success_str += ret[0]
+                next_index = ret[1]
+                    
+        self.type = 3
+        return (success_str,next_index)
+
+    def match_add(self,s,next_index=0):
+        next_index_bak = next_index
+        success_str = ''
+        self.type = 1
+        ret = self.get_match(s,next_index)
+        if ret[0] == False:
+            return (False,next_index_bak)
+        else:
+            next_index = ret[1]
+            success_str += ret[0]
+        self.type = 3
+        ret = self.get_match(s,next_index)
+        success_str += ret[0]
+        return (success_str,ret[1])
+
+    def get_match(self,s,next_index=0):
+        return self.type_dict[self.type](s,next_index)
+
+
 def jump_over_space(s,next_index):
     """
     From a given position in a string, return the position of the next
