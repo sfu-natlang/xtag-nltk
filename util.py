@@ -47,7 +47,12 @@ def restore_from_disk(fp):
     :return: The restored object
     :rtype: Any object
     """
-    obj = pickle.load(fp)
+    language = 'english'
+    try:
+        obj = pickle.load(fp)
+    except:
+        update(language)
+        obj = init_trees()
     return obj
 
 def install():
@@ -59,6 +64,7 @@ def install():
         nltk.data.find('xtag_grammar/'+language+'/pickles/tagtreeset.pickle')
     except LookupError:
         update(language)
+    #update(language)
 
 def update(language):
     """
@@ -104,7 +110,7 @@ def load():
     cata_dir = 'xtag_grammar/'+language+'/english.gram'
     pickle_dir = 'xtag_grammar/'+language+'/pickles/tagtreeset.pickle'
     cata_str = nltk.data.find(cata_dir).open().read()
-    
+
     cata = get_catalog(cata_str)
 
     treefile = nltk.data.find(pickle_dir).open()
@@ -884,8 +890,12 @@ class TAGTreeWidget(TreeWidget):
             children = t
             subtrees = [self._make_expanded_tree(canvas, children[i], key+(i,))
                         for i in range(len(children))]
-            top_name = global_featname(t.node, True)
-            bot_name = global_featname(t.node, False)
+            try:
+                label = t.node
+            except NotImplementedError:
+                label = t._label
+            top_name = global_featname(label, True)
+            bot_name = global_featname(label, False)
             top_fs = FeatStruct()
             bot_fs = FeatStruct()
             if top_name in self._all_fs:
@@ -913,17 +923,21 @@ class TAGTreeWidget(TreeWidget):
         :type t: TAGTree
         :return: Node name
         :rtype: str
-        """    
+        """   
+        try:
+            label = t.node
+        except NotImplementedError:
+            label = t._label 
         if t.attr == 'subst':
-            return t.node + u'\u2193'.encode('utf-8')
+            return label + u'\u2193'.encode('utf-8')
         elif t.attr == 'head':
-            return t.node + u'\u25c7'.encode('utf-8')
+            return label + u'\u25c7'.encode('utf-8')
         elif t.attr == 'foot':
-            return t.node + u'\u2605'.encode('utf-8')
+            return label + u'\u2605'.encode('utf-8')
         elif t.attr == None:
-            return t.node
+            return label
         elif t.attr == 'lex':
-            return t.node
+            return label
         else:
             raise TypeError("%s: Expected an attribute with value"
                             "subst, head or foot ")
@@ -1008,13 +1022,21 @@ class TAGTree(Tree):
         self.comment = None
         self.start_feat = False
         if isinstance(node_with_fs, basestring):
-            self.node = node_with_fs
+            try:
+                self.node = node_with_fs
+                Tree.__init__(self, self.node, children)
+            except NotImplementedError:
+                self._label = node_with_fs
+                Tree.__init__(self, self._label, children)
             self.top_fs = FeatStruct()
             self.bot_fs = FeatStruct()
-            Tree.__init__(self, self.node, children)
         elif len(node_with_fs) == 3:
-            (self.node, self.top_fs, self.bot_fs) = node_with_fs
-            Tree.__init__(self, self.node, children)
+            try:
+                self.node, self.top_fs, self.bot_fs = node_with_fs
+                Tree.__init__(self, self.node, children)
+            except NotImplementedError:
+                self._label, self.top_fs, self.bot_fs = node_with_fs
+                Tree.__init__(self, self._label, children)
         else:
             raise TypeError("%s: Expected a node value with feature"
                             "structures and child list" % type(self).__name__)
@@ -1056,7 +1078,11 @@ class TAGTree(Tree):
         nodes.append(self)
         while len(nodes) > 0:
             last = nodes.pop()
-            if last.node == name_or_attr or last.attr == name_or_attr:
+            try:
+                label = last.node
+            except NotImplementedError:
+                label = last._label
+            if label == name_or_attr or last.attr == name_or_attr:
                 results.append(last)
             else:
                 for child in last:
@@ -1185,7 +1211,11 @@ class TAGTree(Tree):
         """
         Get node name of root node
         """
-        return self.node
+        try:
+            label = self.node
+        except NotImplementedError:
+            label = self._label
+        return label
 
     def get_all_fs(self):
         """
@@ -1196,8 +1226,12 @@ class TAGTree(Tree):
         stack.append(self)
         while len(stack) > 0:
             last = stack.pop()
-            all_feat[last.node+'.'+'t'] = last.top_fs
-            all_feat[last.node+'.'+'b'] = last.bot_fs
+            try:
+                label = last.node
+            except NotImplementedError:
+                label = last._label
+            all_feat[label+'.'+'t'] = last.top_fs
+            all_feat[label+'.'+'b'] = last.bot_fs
             for child in last:
                 if isinstance(child, TAGTree):
                     stack.append(child)
@@ -1213,11 +1247,15 @@ class TAGTree(Tree):
         nodes.append(self)
         while len(nodes) > 0:
             last = nodes.pop()
-            if last.node+'.'+'t' not in all_fs:
-                if last.node+'.'+'b' not in all_fs:
+            try:
+                label = last.node
+            except NotImplementedError:
+                label = last._label
+            if label+'.'+'t' not in all_fs:
+                if label+'.'+'b' not in all_fs:
                     raise NameError('should contain feature structures')
-            last.top_fs = all_fs[last.node+'.'+'t']
-            last.bot_fs = all_fs[last.node+'.'+'b']
+            last.top_fs = all_fs[label+'.'+'t']
+            last.bot_fs = all_fs[label+'.'+'b']
             for child in last:
                 if isinstance(child, TAGTree):
                     nodes.append(child)
@@ -1261,7 +1299,11 @@ class TAGTree(Tree):
         :rtype: TAGTree
         """
         trees = []
-        name = self.node.split('_')
+        try:
+            label = self.node
+        except NotImplementedError:
+            label = self._label
+        name = label.split('_')
         prefix = name[0]
         if prefix == tree_name:
             trees.append(self)
@@ -1292,7 +1334,11 @@ class TAGTree(Tree):
         :return: subtree with tree_name as root name
         :rtype: TAGTree
         """
-        if self.node == tree_name:
+        try:
+            label = self.node
+        except NotImplementedError:
+            label = self._label
+        if label == tree_name:
             return self
         else:
             for child in self:
@@ -1327,7 +1373,11 @@ class TAGTree(Tree):
         Get a copied tree with no name collided node
         """
         tree = copy.deepcopy(self)
-        tree.check_name([tree.node], 0)
+        try:
+            label = tree.node
+        except NotImplementedError:
+            label = tree._label
+        tree.check_name([_label], 0)
         return tree       
 
     def check_name(self, names, count):
@@ -1337,11 +1387,15 @@ class TAGTree(Tree):
         :rtype: int
         """
         for child in self:
-            if child.node in names:
-                name = child.node.split("_")[0]
-                child.node = name + '_' + str(count)
+            try:
+                label = child.node
+            except NotImplementedError:
+                label = child._label
+            if label in names:
+                name = label.split("_")[0]
+                label = name + '_' + str(count)
                 count += 1
-            names.append(child.node)
+            names.append(label)
             for sub in child:
                 count = child.check_name(names, count)
         return count
