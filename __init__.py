@@ -6,6 +6,7 @@
 # URL: <http://www.nltk.org/>
 # For license information, see LICENSE.TXT
 #
+import nltk.compat
 try:
     import Tkinter
 except ImportError:
@@ -13,6 +14,6 @@ except ImportError:
     warnings.warn("nltk.xtag package not loaded "
                   "(please install Tkinter library).")
 else:
-    from draw import LexView
-    from util import (TAGTreeSegmentWidget, TAGTreeSetView,
+    from .draw import LexView
+    from .util import (TAGTreeSetView, TAGTree, load,
                       TAGTreeWidget, TAGTreeView, TAGTreeSet)

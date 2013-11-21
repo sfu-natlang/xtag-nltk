@@ -1,84 +1,23 @@
 def jump_over_space(s,next_index):
-    """
-    From a given position in a string, return the position of the next
-    character which is not a space. If there is no such a character in the end
-    then return False.
-
-    :param s: A string
-    :type s: str
-    :param next_index: The position in the string
-    :type index: int
-    :return: The next index which is not a space, or a False if no such char
-    :rtype: int/False
-    """
-    try:
-        while s[next_index].isspace():
-            next_index += 1
-    except IndexError:
-        return False
-    else:
-        return next_index
-
-def check_symbol(s,next_index,symbol):
-    """
-    Check whether we have got a defined symbol in the grammar. Return False if
-    not, or return the next_index after this symbol.
-
-    :param s: The string need to be checked
-    :type s: str
-    :param next_index: Index on the string
-    :type next_index: integer
-    :param symbol: The symbol to be checked against
-    :type symbol: str
-    """
-    try:
-        next_index = jump_over_space(s,next_index)
-        if s[next_index:next_index + len(symbol)] == symbol:
-            return next_index + len(symbol) # We must ignore the symbol
-    except IndexError:
-        return False
-    else:
-        return False
+    while s[next_index].isspace():
+        next_index += 1
+    return next_index
 
 def print_context(s,next_index):
-    """
-    Used to print out the context in debugging.
-
-    :param s: The string we are parsing
-    :type s: str
-    :param next_index: The index of the position
-    :type next_index: int
-    """
     print s[next_index - 20:next_index + 20]
 
 def is_valid_string_component(ch):
-    """
-    Determine if a character is a vaild character in a string. We define valid
-    as if the character is any alnum or '-' or '_' or '?'. Used in multiple
-    functions, don't change this.
-
-    :param ch: The character you want to check
-    :type ch: str (of length 1)
-    """
     if ch.isalnum() or ch == '-' or ch == '_' or ch == '?':
         return True
     else:
         return False
 
 def get_alnum_string(s,next_index):
-    """
-    Extract a string only contains alphabets and digits. If it EOF is met
-    then the next_index in the tuple returned will be False
-    """
     next_index = jump_over_space(s,next_index)
     start_index = next_index
-    try:
-        while is_valid_string_component(s[next_index]): # Only accept alpha and num as the string
-            next_index += 1
-    except IndexError:
-        return (s[start_index:],False)
-    else:
-        return (s[start_index:next_index],next_index)
+    while is_valid_string_component(s[next_index]): # Only accept alpha and num as the string
+        next_index += 1
+    return (s[start_index:next_index],next_index)
 
 def get_tree_name(s,next_index):
     next_index = jump_over_space(s,next_index)
