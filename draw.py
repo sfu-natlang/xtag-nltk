@@ -142,6 +142,7 @@ class LexView(object):
         if len(words) == 0:
             return
         self._tagset = TAGTreeSet()
+        self._e.delete(0, END)
         self._treeview.clear()
         for word in words:
             self._tagset[word] = TAGTreeSet()
