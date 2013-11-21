@@ -174,7 +174,8 @@ class TAGTreeView(TreeView):
         """
         Show comment of selected TAG tree
         """
-        width = len(self._trees[0].leaves())*140 + 230
+        length = len(self._trees[0].leaves())
+        width = pow(length, 1.5)*80 + 230 + pow(len(self._trees[0]), 2)*35
         self._cframe.add_widget(self.treecomment[id(self._trees[0])].widget(),
                                 width, 0)
 
@@ -227,7 +228,8 @@ class TAGTreeView(TreeView):
             self.treecomment[id(trees[0])] = CommentWidget(self._cframe.canvas(),
                                                            self,width=500)
             self.oldcomment = self.treecomment[id(trees[0])]
-            width = len(trees[0].leaves())*140 + 230
+            length = len(self._trees[0].leaves())
+            width = pow(length, 1.5)*80 + 230 + pow(len(self._trees[0]), 2)*35
             self._cframe.add_widget(self.oldcomment.widget(), width, 0)
         else:
             if self.oldcomment:
@@ -1499,6 +1501,14 @@ def remove_or_tag(feat):
     keys = feat.keys()
     length = len(keys)
     for key in keys:
+        try:
+            key.decode('ascii')
+        except:
+            if len(key) >= 4:
+                value = feat[key]
+                feat['eps'+key[2:]] = value
+                del feat[key]
+                key = 'eps'+key[2:]
         if key[:5] == '__or_' and length > 1:
             values = feat.values()
             value = ''
