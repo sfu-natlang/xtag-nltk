@@ -102,6 +102,27 @@ class Pattern:
             return self
         else:
             return Pattern([self],4)
+        
+    @staticmethod
+    def match_eof(s,next_index=0):
+        """
+        This method detects whether the string has come to an end. This is
+        necessary sometimes, since both 'Not Match' and 'EOF' will cause
+        the get_match() to return a False in the first component. It is hard
+        to distinguish these two. So we provide this additional method to
+        detect such a situation.
+
+        :return: A tuple, the first component is True if next_index is out of
+        bound, and False if it is not. The second component is always the
+        parameter next_index, not changed.
+        :rtype: tuple(bool,int)
+        """
+        try:
+            s[next_index]
+        except IndexError:
+            return (True,next_index)
+        else:
+            return (False,next_index)
 
     def match_basic(self,s,next_index=0):
         max_length = -1
@@ -187,6 +208,9 @@ class Pattern:
     def get_match(self,s,next_index=0):
         return self.type_dict[self.type](s,next_index)
 
+    def parse(self,s,next_index=0):
+        return self.get_match(s,next_index)
+
 class PatternBuilder:
     built_in = {
         'comma': Pattern([',']),
@@ -231,6 +255,9 @@ class LLGrammar:
         def __init__(self,rhs):
             self.rhs = rhs
             return
+
+        def __repr__(self):
+            return 'LLGRammar Element: Star'
         
         def parse(self,s,next_index):
             parse_result = []
@@ -242,7 +269,62 @@ class LLGrammar:
                 else:
                     next_index = ret[1]
                     parse_result += ret[0][1:]
-            raise ValueError('You should have seen this. Fatal Error!!')
+            raise ValueError('You should not have seen this. Fatal Error!!')
+
+    class Nested:
+        """
+        This is used to parse a nested structure, usually a very long expression
+        like string which is nested with multiple levels of brackets or quote
+        marks. For example:
+
+        ( S ( NP I ) ( VP ( V  like ) ( NP ( N fish ) ) ) )
+
+        Basically the parsing will not try to recognize the internal structure
+        of the nested structure. It only uses a stack to count the balance
+        of the string. And once the stack is balanced for the first time it will
+        stop and return the result as well as the next_index.
+        """
+        def __init__(self,start_symbol,end_symbol):
+            self.start_symbol = start_symbol
+            self.end_symbol = end_symbol
+            return
+
+        def __repr__(self):
+            return 'LLGrammar Element: Nested'
+
+        def parse(self,s,next_index):
+            next_index_bak = next_index
+            start_pattern = self.start_symbol
+            end_pattern = self.end_symbol
+            stack = 0
+            while True:
+                ret = start_pattern.parse(s,next_index)
+                if ret[0] != False:
+                    stack += 1
+                    next_index = ret[1]
+                else:
+                    ret = end_pattern.parse(s,next_index)
+                    if ret[0] != False:
+                        stack -= 1
+                        next_index = ret[1]
+                        # If stack balanced then accept
+                        if stack == 0:
+                            return (s[next_index_bak:next_index],next_index)
+                    else:
+                        if Pattern.match_eof(s,next_index)[0] == True:
+                            # EOF encountered and stack is balanced
+                            if stack == 0:
+                                return (s[next_index_bak:next_index],
+                                        next_index)
+                            # Stack not balanced, just go back and reject
+                            else:
+                                return (False,next_index_bak)
+                        # If we cannot find both a start symbol and end symbol
+                        # then just step one character further and check again
+                        else:
+                            next_index += 1
+            raise ValueError('You shuold not have seen this.')
+                
     
     space_pattern = Pattern(Pattern.space).star()
 
@@ -319,6 +401,16 @@ class LLGrammar:
                     next_index = ret[1]
                     # Because Star() will return a list of objects
                     parse_result += ret[0]
+                elif isinstance(j,LLGrammar.Nested):
+                    ret = j.parse(s,next_index)
+                    if ret[0] != False:
+                        next_index = ret[1]
+                        # The nested will be represented as a tuple
+                        parse_result.append( ('nested',ret[0]) )
+                    else:
+                        parse_result = [self.lhs]
+                        next_index = next_index_bak
+                        break
                 else:
                     raise TypeError('Unknown element in the LLGramar')
             # If we did not use a break and the loop terminates
@@ -367,12 +459,59 @@ class TreeReader:
                               [ opt_name ]
                           ]
                          )
-    tree_options = LLGrammar('opt',[[LLGrammar.Star([opt_name,opt_value])]])
+    tree_options = LLGrammar('opts',[[LLGrammar.Star([opt_name,opt_value])]])
     tree = LLGrammar('tree',[[pb['lbracket'],tree_name,
-                              tree_options,pb['rbracket']]])
+                              tree_options,pb['rbracket']
+                              ,LLGrammar.Nested(pb['lbracket'],pb['rbracket'])]])
+    forest = LLGrammar('forest',[[LLGrammar.Star([tree])]])
 
-fp = open('auxs.trees')
+    def __init__(self,s):
+        self.s = s
+    
+    def parse(self,next_index=0):
+        length = len(self.s)
+        ret = TreeReader.forest.parse(self.s,next_index)
+        if ret[1] + 1 != length:
+            print ret[1]
+            print length
+            raise ValueError('The file is not parsed completely')
+        else:
+            self.parsed_trees = ret[0]
+        return
+
+    def make_dict(self):
+        self.tree_dict = {}
+        for i in self.parsed_trees[1:]:
+            if not self.tree_dict.has_key(i[2][1][1:-1]):
+                self.tree_dict[i[2][1][1:-1]] = {}
+                tree = self.tree_dict[i[2][1][1:-1]]
+                for j in range(0,len(i[3][1:])):
+                    opt = i[3][j]
+                    val = i[3][j + 1]
+                    j += 1
+                    if len(val) == 2:
+                        tree[opt[2]] = val[1]
+
+    def get_feature(self,tree_name):
+        return self.tree_dict[tree_name]['UNIFICATION-EQUATIONS']
+
+    def get_comment(self,tree_name):
+        return self.tree_dict[tree_name]['COMMENTS']
+
+    def get_names(self):
+        return self.tree_dict.keys()
+
+fp = open('TXnx0Vs1.trees')
 s = fp.read()
-ret = TreeReader.tree.parse(s)
-print ret
-LLGrammar.print_tree(ret[0])
+a = TreeReader(s)
+a.parse()
+#print ret
+#LLGrammar.print_tree(a.parsed_trees)
+a.make_dict()
+for i in a.get_names():
+    print a.get_comment(i)
+#print a.tree_dict['Xnx0Vs1']['UNIFICATION-EQUATIONS']
+for i in a.parsed_trees[1:]:
+    for j in i[3][1:]:
+        #print j[2]
+        pass
