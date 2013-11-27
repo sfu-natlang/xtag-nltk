@@ -24,8 +24,11 @@ class Pattern:
     alpha_lower = list('abcdefghijklmnopqrstuvwxyz')
     alpha_upper = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
     digit = list('0123456789')
+    underline = list('_')
     alpha = alpha_lower + alpha_upper
     alpha_num = alpha + digit
+    alpha_num_ul = alpha + digit + underline
+    alpha_ul = alpha + underline
     space = list(' \n\t')
     
     def __add__(self, rhs):
@@ -213,6 +216,7 @@ class Pattern:
 
 class PatternBuilder:
     built_in = {
+        'point': Pattern(['.']),
         'comma': Pattern([',']),
         'qmark': Pattern(['?']),
         'dash': Pattern(['-']),
@@ -225,6 +229,11 @@ class PatternBuilder:
         'colon': Pattern([':']),
         'squot': Pattern(["'"]),
         'dquot': Pattern(['"']),
+        'lt': Pattern(['<']),
+        'gt': Pattern(['>']),
+        'eq': Pattern(['=']),
+        'ident': (Pattern(Pattern.alpha_ul) &
+                  Pattern(Pattern.alpha_num_ul).star()),
         'char': Pattern(list('~!@#$%^&*()_+=-][{};:/?.>,<\\`')
                        + Pattern.alpha_num + Pattern.space) + [r'\'',r"\""],
     }
@@ -448,6 +457,17 @@ e2.rhs.reverse()
 print ( e3.parse('aa + bD * cE * ( d + e * (cCCSDFD - 123456) )')[0])
 """
 class TreeReader:
+    """
+    Parser built for xtag trees. The grammar is like this:
+
+    forest -> tree*
+    tree -> '(' tree_name tree_options ')'
+    tree_options -> (opt_name opt_value)*
+    opt_name -> :string
+    opt_value -> string | '(' opt_name* ')' | "\"" string "\"" | opt_name
+    string -> ...(See PatternBuilder)
+    
+    """
     pb = PatternBuilder()
     tree_name = LLGrammar('tree_name',[[pb['qstring']]])
     opt_name = LLGrammar('opt_name',[[pb['colon'],pb['string']]])
@@ -466,14 +486,12 @@ class TreeReader:
     forest = LLGrammar('forest',[[LLGrammar.Star([tree])]])
 
     def __init__(self,s):
-        self.s = s
+        self.s = s.strip()
     
     def parse(self,next_index=0):
         length = len(self.s)
         ret = TreeReader.forest.parse(self.s,next_index)
-        if ret[1] + 1 != length:
-            print ret[1]
-            print length
+        if ret[1] != length:
             raise ValueError('The file is not parsed completely')
         else:
             self.parsed_trees = ret[0]
@@ -501,17 +519,91 @@ class TreeReader:
     def get_names(self):
         return self.tree_dict.keys()
 
-fp = open('TXnx0Vs1.trees')
-s = fp.read()
+class FeatureReader:
+    """
+    This class is used to parse feature structures.
+
+    root -> entry*
+    entry -> lhs '=' rhs
+    rhs -> lhs
+    rhs -> string
+    lhs -> ident '.' ident ':' '<' ident* '>' |
+           ident ':' '<' ident* '>'
+    """
+    pb = PatternBuilder()
+    rhs_pattern = pb['alnum'] + Pattern(list('-_+<>'))
+    rhs_separator = Pattern(['/'])
+    lhs_pattern = pb['alnum'] + Pattern(list('-_'))
+    lhs = LLGrammar('lhs',[ [pb['ident'],pb['point'],pb['ident'],pb['colon'],
+                       pb['lt'], LLGrammar.Star([lhs_pattern.add()]),
+                       pb['gt']],
+                      [pb['ident'],pb['colon'],
+                       pb['lt'], LLGrammar.Star([lhs_pattern.add()]),
+                       pb['gt']]
+                    ])
+    rhs = LLGrammar('rhs',[ [
+                                lhs
+                            ],
+                            [
+                                rhs_pattern.add(),
+                                LLGrammar.Star([rhs_separator,
+                                                rhs_pattern.add()])
+                            ]
+                          ]
+                    )
+    entry = LLGrammar('entry',[[ lhs,pb['eq'],rhs ]])
+    root = LLGrammar('root',[[LLGrammar.Star([entry])]])
+
+    def __init__(self,s):
+        self.s = s.strip()
+    def parse(self):
+        ret = self.root.parse(self.s)
+        if ret[1] != len(self.s):
+            raise ValueError('Features not parsed completely')
+        self.parsed_features = ret[0]
+        return
+    def make_list(self):
+        self.features = []
+        for i in self.parsed_features[1:]:
+            lhs = i[1][1:]
+            rhs = i[3][1:]
+            path = []
+            for j in lhs:
+                if j != '<' and j != '>' and j != '.' and j != ':':
+                    path.append(j)
+                    
+            value = []
+            for k in rhs:
+                if isinstance(k,list):
+                    for m in k:
+                        if m != '<' and m != '>' and m != '.' and m != ':':
+                            value.append(m)
+                    break
+                else:
+                    if k != '/':
+                        value.append(k)
+            else:
+                value = tuple(value)
+                
+            self.features.append({'path': path, 'value': value})
+    
+
+fp = open('Tnx0VAN1Pnx2.trees')
+s = fp.read().strip()
 a = TreeReader(s)
 a.parse()
 #print ret
 #LLGrammar.print_tree(a.parsed_trees)
 a.make_dict()
-for i in a.get_names():
-    print a.get_comment(i)
+#for i in a.get_names():
+#    print a.get_comment(i)
 #print a.tree_dict['Xnx0Vs1']['UNIFICATION-EQUATIONS']
 for i in a.parsed_trees[1:]:
     for j in i[3][1:]:
         #print j[2]
         pass
+c = a.get_feature('nx2VAN1Pbynx0-PRO')
+fr = FeatureReader(c[1:-1])
+fr.parse()
+fr.make_list()
+print fr.features
