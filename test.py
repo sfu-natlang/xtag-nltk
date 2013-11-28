@@ -226,7 +226,12 @@ class PatternBuilder:
         'space': Pattern(Pattern.space),
         'lbracket': Pattern(['(']),
         'rbracket': Pattern([')']),
+        'clbracket': Pattern(['{']),
+        'crbracket': Pattern(['}']),
+        'semicolon': Pattern([';']),
         'colon': Pattern([':']),
+        'slash': Pattern(['/']),
+        'bslash': Pattern(['\\']),
         'squot': Pattern(["'"]),
         'dquot': Pattern(['"']),
         'lt': Pattern(['<']),
@@ -280,6 +285,26 @@ class LLGrammar:
                     parse_result += ret[0][1:]
             raise ValueError('You should not have seen this. Fatal Error!!')
 
+    class Add:
+        def __init__(self,rhs):
+            self.rhs = rhs
+            return
+        
+        def __repr__(self):
+            return 'LLGrammar Element: Add'
+
+        def parse(self,s,next_index):
+            parse_result = []
+            single_loop = LLGrammar('add',[self.rhs])
+            ret = single_loop.parse(s,next_index)
+            if ret[0] == False:
+                return (parse_result,next_index)
+            else:
+                next_index = ret[1]
+                parse_result += ret[0][1:]
+                return (parse_result,next_index)
+            raise ValueError('You should not have seen this. Fatal Error!!')
+
     class Nested:
         """
         This is used to parse a nested structure, usually a very long expression
@@ -288,7 +313,7 @@ class LLGrammar:
 
         ( S ( NP I ) ( VP ( V  like ) ( NP ( N fish ) ) ) )
 
-        Basically the parsing will not try to recognize the internal structure
+        Basically the parser will not try to recognize the internal structure
         of the nested structure. It only uses a stack to count the balance
         of the string. And once the stack is balanced for the first time it will
         stop and return the result as well as the next_index.
@@ -349,12 +374,13 @@ class LLGrammar:
         for i in parse_result[1:]:
             LLGrammar.print_tree(i,table + 4)
             
-    def __init__(self,lhs,rhs):
+    def __init__(self,lhs,rhs,funcs=None):
         # The name of this node. Will be returned in the parsing tree
         self.lhs = lhs
         # RHS is a list of lists. Each element in the nested list is either a
         # Pattern of LLGrammar
         self.rhs = rhs
+        self.funcs = None
 
     @staticmethod
     # Not finish yet
@@ -404,7 +430,8 @@ class LLGrammar:
                         parse_result = [self.lhs]
                         next_index = next_index_bak
                         break
-                elif isinstance(j,LLGrammar.Star):
+                elif (isinstance(j,LLGrammar.Star) or
+                      isinstance(j,LLGrammar.Add)):
                     ret = j.parse(s,next_index)
                     # It always succeed
                     next_index = ret[1]
@@ -422,7 +449,9 @@ class LLGrammar:
                         break
                 else:
                     raise TypeError('Unknown element in the LLGramar')
-            # If we did not use a break and the loop terminates
+            # If we didn't jump out using break, which means the loop
+            # terminates normally, then we know that all grammars has been
+            # parsed
             else:
                 return (parse_result,next_index)
         # If we cannot find a possible rule then exit with a False
@@ -588,6 +617,122 @@ class FeatureReader:
             self.features.append({'path': path, 'value': value})
     
 
+class KoreanSyntaxReader:
+    """
+    pb = PatternBuilder()
+    index = pb['bslash'] & pb['alnum'] & pb['bslash']
+    pos = pb['alnum']
+    tree_name = pb['alnum'] + Pattern(list('\x02\x03'))\
+    comment_string = (pb['char'] + Pattern(list(' \t\r\v'))).star()
+    feature_entry = 
+    tree_entry = LLGrammar([[tree_name,LLGrammar.Add([])]])
+`   """
+
+    def __init__(self,s):
+        self.s = s
+        self.features = {}
+        self.entries = []
+
+    def parse_line(self,line):
+        if line[0] != '\\':
+            raise ValueError('A line must start with a back slash')
+        next_bslash = line.find('\\',1)
+        if next_bslash == -1:
+            raise ValueError('Another back slash expected after the first one')
+        index = line[1:next_bslash].strip()
+        comma = line.find(',',next_bslash)
+        if comma == -1:
+            raise ValueError('Comma expected after the index')
+        colon = line.find(':',comma)
+        if colon == -1:
+            raise ValueError('Colon expected after the POS')
+        pos = line[comma + 1:colon].strip()
+        period = line.find('.',colon)
+        if period == -1:
+            raise ValueError('Period expected after feature')
+        comment_index = line.find(';;',period + 1)
+        if comment_index == -1:
+            comment_text = ''
+            trees = line[colon + 1:].strip()[:-1]
+        else:
+            comment_text = line[comment_index + 2:].strip()
+            trees = line[colon + 1:comment_index].strip()[:-1]
+
+        ret = []
+
+        in_feature = False
+        trees_list = []
+        last_index = 0
+        for i in range(0,len(trees)):
+            if trees[i] == ',' and in_feature == False:
+                trees_list.append(trees[last_index:i].strip())
+                last_index = i + 1
+            elif trees[i] == '{':
+                in_feature = True
+            elif trees[i] == '}':
+                in_feature = False
+        trees_list.append(trees[last_index:].strip())
+                
+        for i in trees_list:
+            i = i.strip()
+            fs = i.find('{')
+            if fs == -1 and (i[0] == '\x02' or i[0] == '\x03'):
+                ret.append('<<INDEX>>%s<<POS>>%s<<TREES>>%s' %
+                           (index,pos,i))
+            elif fs == -1:
+                ret.append('<<INDEX>>%s<<POS>>%s<<FAMILY>>%s' %
+                            (index,pos,i))
+            else:
+                fs_end_index = i.find('}',fs + 1)
+                if fs_end_index == -1:
+                    raise ValueError('} Expected on %s' % (index))
+                tree_name = i[:fs]
+                fs_index = index + '_' + tree_name
+                fs_content = i[fs + 1:fs_end_index]
+                self.features[fs_index] = fs_content
+                if i[0] == '\x02' or i[0] == '\x03':
+                    ret.append('<<INDEX>>%s<<POS>>%s<<TREES>>%s<<FEATURES>>%s' %
+                               (index,pos,tree_name,fs_index))
+                else:
+                    ret.append('<<INDEX>>%s<<POS>>%s<<FAMILY>>%s<<FEATURES>>%s' %
+                               (index,pos,tree_name,fs_index))
+        return ret
+                
+
+    def parse(self):
+        lines = self.s.splitlines()
+        for i in lines:
+            i = i.strip()
+            if i == '':
+                continue
+            else:
+                ret = self.parse_line(i)
+                self.entries += ret
+        return
+
+    def print_feature(self):
+        for i in self.features.keys():
+            print '#' + i + '\t' + self.features[i] + ' !'
+
+    def dump(self,syntax_file,template_file):
+        tf = open(template_file,'w')
+        for i in self.features.keys():
+            tf.write('#' + i + '\t' + self.features[i] + ' !\r\n')
+        tf.close()
+
+        sf = open(syntax_file,'w')
+        for i in self.entries:
+            sf.write(i + '\r\n')
+        sf.close()
+        return
+
+fp = open('lexicon.syntax')
+s = fp.read()
+a = KoreanSyntaxReader(s)
+a.parse()
+a.dump('syntax_coded.flat','templates.lex')
+    
+"""
 fp = open('Tnx0VAN1Pnx2.trees')
 s = fp.read().strip()
 a = TreeReader(s)
@@ -602,8 +747,9 @@ for i in a.parsed_trees[1:]:
     for j in i[3][1:]:
         #print j[2]
         pass
-c = a.get_feature('nx2VAN1Pbynx0-PRO')
+c = a.get_feature('nx0VAN1Pnx2-PRO')
 fr = FeatureReader(c[1:-1])
 fr.parse()
 fr.make_list()
 print fr.features
+"""
