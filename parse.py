@@ -18,22 +18,6 @@ from copy import deepcopy
 import nltk.data
 
 #help(ProbabilisticNonprojectiveParser)
-"""
-class XTAGScorer(NaiveBayesDependencyScorer):
-
-    A dependency scorer built around a MaxEnt classifier.  In this
-    particular class that classifier is a ``NaiveBayesClassifier``.
-    It uses head-word, head-tag, child-word, and child-tag features
-    for classification.
-
-
-    def __init__(self, label_freqdist, feature_probdist):
-        self.label_freqdist = label_freqdist
-        self.feature_probdist = feature_probdist
-
-    def train(self, graphs):
-        self.classifier = NaiveBayesClassifier(self.label_freqdist, self.feature_probdist)
-"""
 class TAGTreeSelector(TAGTreeSetView):
     def __init__(self, tagtree, callback):
         TAGTreeSetView.__init__(self, tagtree)
