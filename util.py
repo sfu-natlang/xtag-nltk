@@ -52,7 +52,7 @@ def restore_from_disk(fp):
         obj = pickle.load(fp)
     except:
         update(language)
-        obj = init_trees()
+        obj = init_trees(language)
     return obj
 
 def install(language):
@@ -74,7 +74,7 @@ def update(language):
         d = 'xtag_grammar/'+language
         p = os.path.join(path_item, *d.split('/'))
         if os.path.exists(p):
-            t = init_trees()
+            t = init_trees(language)
             pic_dir = os.path.join(p, 'pickles')
             if not os.path.exists(pic_dir):
                 os.makedirs(pic_dir)
@@ -82,14 +82,14 @@ def update(language):
             dump_to_disk(tree_dir, t)
             return
 
-def init_trees():
+def init_trees(language):
     """
     Initialize the TAG tree Forests from tree files in xtag_grammar/grammar/
     :return: The forest of all TAG trees
     :rype: TAGTreeSet
     """
-    language = 'english'
-    cata_dir = 'xtag_grammar/'+language+'/english.gram'
+    #language = 'english'
+    cata_dir = 'xtag_grammar/'+language+'/'+language+'.gram'
     cata_str = nltk.data.find(cata_dir).open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
@@ -107,7 +107,7 @@ def load(language):
     """
     xtag_dir = 'xtag_grammar'
     #language = 'english'
-    cata_dir = 'xtag_grammar/'+language+'/english.gram'
+    cata_dir = 'xtag_grammar/'+language+'+language+'.gram'
     pickle_dir = 'xtag_grammar/'+language+'/pickles/tagtreeset.pickle'
     cata_str = nltk.data.find(cata_dir).open().read()
 
