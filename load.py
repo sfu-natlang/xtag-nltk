@@ -758,11 +758,12 @@ def analyze_template(s):
     :return: A pair of dictionaries, one for morph and another for syntax
     :rtype: tuple(dict,dict)
     """
-    # The return value of this function is a tuple. The first element of the tuple is a dictionary
+    # The return value of this function is a tuple. The first element of the
+    # tuple is a dictionary
     # using identifiers from morph.flat, and the entries are feature structures
-    # with proper values set. The second element is a dictionary using keys from
-    # syntax-coded.flat, which will return a list containing all feature structures
-    # from a given identifier.
+    # with proper values set. The second element is a dictionary using 
+    # keys from syntax-coded.flat, which will return a list containing 
+    # all feature structures from a given identifier.
     lines = s.splitlines()
     feature_list = {}
     feature_list2 = {}
@@ -792,15 +793,20 @@ def analyze_template(s):
                 f = f.strip()
                 index = f.find('=')
                 if f[0] == '@' and feature_list.has_key(f[1:]):
-                    fs = fs.unify(feature_list[f[1:]])    # unify() does not change in-place
+                    # unify() does not change in-place
+                    fs = fs.unify(feature_list[f[1:]])    
                 elif index != -1:
                     lhs = f[:index].strip()
+                    #print lhs
                     rhs = f[index + 1:].strip()
-                    ref = False # If not a reference then ref is by default True
-                    if rhs[0] == '@':      # rhs can also be reference
+                    # If not a reference then ref is by default True
+                    ref = False
+                    # rhs can also be reference
+                    if rhs[0] == '@':      
                         rhs = feature_list[rhs[1:]]
                         ref = True # Used in make_fs
                     if lhs[0] != '<' or lhs[-1] != '>':
+                        print l
                         raise TypeError('The left hand side of a feature structure must be wrapped with <>')
                     lhs = lhs[1:-1]
                     path = lhs.split()
