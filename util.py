@@ -55,11 +55,11 @@ def restore_from_disk(fp):
         obj = init_trees()
     return obj
 
-def install():
+def install(language):
     """
     Install pickle file of the TAG forest to speed up.
     """
-    language = 'english'
+    #language = 'english'
     try:
         nltk.data.find('xtag_grammar/'+language+'/pickles/tagtreeset.pickle')
     except LookupError:
@@ -98,7 +98,7 @@ def init_trees():
     t.set_start_fs(sfs)
     return t
 
-def load():
+def load(language):
     """
     Load the forest pickle to initilize the TAG forest, load the morphology
     files, lexicon files, template files, syntax files and mapping file
@@ -106,7 +106,7 @@ def load():
     :rype: TAGTreeSet
     """
     xtag_dir = 'xtag_grammar'
-    language = 'english'
+    #language = 'english'
     cata_dir = 'xtag_grammar/'+language+'/english.gram'
     pickle_dir = 'xtag_grammar/'+language+'/pickles/tagtreeset.pickle'
     cata_str = nltk.data.find(cata_dir).open().read()
