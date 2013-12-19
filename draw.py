@@ -290,7 +290,7 @@ class LexView(object):
 
 
 def demo():
-    t = load()
+    t = load('korean')
     viewer = LexView(t)
     viewer.mainloop()
 
