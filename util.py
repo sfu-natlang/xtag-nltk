@@ -39,7 +39,7 @@ def dump_to_disk(filename,obj):
     pickle.dump(obj,fp, -1)
     fp.close()
 
-def restore_from_disk(fp):
+def restore_from_disk(fp, language):
     """
     Restore the dumped file using pickle to an obejct
     :param filename: The file you want to read from
@@ -47,7 +47,7 @@ def restore_from_disk(fp):
     :return: The restored object
     :rtype: Any object
     """
-    language = 'english'
+    #language = 'english'
     try:
         obj = pickle.load(fp)
     except:
@@ -93,8 +93,8 @@ def init_trees(language):
     cata_str = nltk.data.find(cata_dir).open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
-    t = parse_from_files(cata, 'tree-files')
-    t += parse_from_files(cata, 'family-files')
+    t = parse_from_files(cata, 'tree-files', language)
+    t += parse_from_files(cata, 'family-files', language)
     t.set_start_fs(sfs)
     return t
 
@@ -114,7 +114,7 @@ def load(language):
     cata = get_catalog(cata_str)
 
     treefile = nltk.data.find(pickle_dir).open()
-    treeset = restore_from_disk(treefile)
+    treeset = restore_from_disk(treefile, language)
     morph = get_file_list(cata, 'morphology-files')
     syn = get_file_list(cata, 'lexicon-files')
     temp = get_file_list(cata, 'templates-files')
@@ -1518,12 +1518,12 @@ def grammar_file_parse(text):
         tagset[tree_name] = new_tree
     return tagset
 
-def parse_from_files(cata, files):
+def parse_from_files(cata, files, language):
     """
     Get the TAGTreeSet from the gram file. The file format
     is defined in Upenn Xtag project.
     """
-    language = 'english'
+    #language = 'english'
     if not isinstance(files, basestring):
         raise TypeError('input should be a base string')
     tree_list = get_file_list(cata, files)
@@ -1783,8 +1783,8 @@ def demo():
     cata_str = nltk.data.find(gramfile).open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
-    t = parse_from_files(cata, 'tree-files')
-    t += parse_from_files(cata, 'family-files')
+    t = parse_from_files(cata, 'tree-files', 'english')
+    t += parse_from_files(cata, 'family-files', 'english')
     t.set_start_fs(sfs)
     alph_tree = t['family-files']['TEnx1V.trees']['\x02Enx1V']
 
