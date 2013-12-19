@@ -107,7 +107,7 @@ def load(language):
     """
     xtag_dir = 'xtag_grammar'
     #language = 'english'
-    cata_dir = 'xtag_grammar/'+language+'+language+'.gram'
+    cata_dir = 'xtag_grammar/' + language + '/' + language + '.gram'
     pickle_dir = 'xtag_grammar/'+language+'/pickles/tagtreeset.pickle'
     cata_str = nltk.data.find(cata_dir).open().read()
 
