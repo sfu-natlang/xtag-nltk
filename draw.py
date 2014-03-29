@@ -290,7 +290,10 @@ class LexView(object):
 
 
 def demo():
-    t = load('korean')
+    if len(sys.argv) == 1:
+    	t = load('english')
+    else:
+    	t = load(sys.argv[1])
     viewer = LexView(t)
     viewer.mainloop()
 
