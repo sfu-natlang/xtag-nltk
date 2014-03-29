@@ -39,7 +39,7 @@ def dump_to_disk(filename,obj):
     pickle.dump(obj,fp, -1)
     fp.close()
 
-def restore_from_disk(fp):
+def restore_from_disk(fp, language):
     """
     Restore the dumped file using pickle to an obejct
     :param filename: The file you want to read from
@@ -47,19 +47,19 @@ def restore_from_disk(fp):
     :return: The restored object
     :rtype: Any object
     """
-    language = 'english'
+    #language = 'english'
     try:
         obj = pickle.load(fp)
     except:
         update(language)
-        obj = init_trees()
+        obj = init_trees(language)
     return obj
 
-def install():
+def install(language):
     """
     Install pickle file of the TAG forest to speed up.
     """
-    language = 'english'
+    #language = 'english'
     try:
         nltk.data.find('xtag_grammar/'+language+'/pickles/tagtreeset.pickle')
     except LookupError:
@@ -74,7 +74,7 @@ def update(language):
         d = 'xtag_grammar/'+language
         p = os.path.join(path_item, *d.split('/'))
         if os.path.exists(p):
-            t = init_trees()
+            t = init_trees(language)
             pic_dir = os.path.join(p, 'pickles')
             if not os.path.exists(pic_dir):
                 os.makedirs(pic_dir)
@@ -82,23 +82,23 @@ def update(language):
             dump_to_disk(tree_dir, t)
             return
 
-def init_trees():
+def init_trees(language):
     """
     Initialize the TAG tree Forests from tree files in xtag_grammar/grammar/
     :return: The forest of all TAG trees
     :rype: TAGTreeSet
     """
-    language = 'english'
-    cata_dir = 'xtag_grammar/'+language+'/english.gram'
+    #language = 'english'
+    cata_dir = 'xtag_grammar/'+language+'/'+language+'.gram'
     cata_str = nltk.data.find(cata_dir).open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
-    t = parse_from_files(cata, 'tree-files')
-    t += parse_from_files(cata, 'family-files')
+    t = parse_from_files(cata, 'tree-files', language)
+    t += parse_from_files(cata, 'family-files', language)
     t.set_start_fs(sfs)
     return t
 
-def load():
+def load(language):
     """
     Load the forest pickle to initilize the TAG forest, load the morphology
     files, lexicon files, template files, syntax files and mapping file
@@ -106,15 +106,15 @@ def load():
     :rype: TAGTreeSet
     """
     xtag_dir = 'xtag_grammar'
-    language = 'english'
-    cata_dir = 'xtag_grammar/'+language+'/english.gram'
+    #language = 'english'
+    cata_dir = 'xtag_grammar/' + language + '/' + language + '.gram'
     pickle_dir = 'xtag_grammar/'+language+'/pickles/tagtreeset.pickle'
     cata_str = nltk.data.find(cata_dir).open().read()
 
     cata = get_catalog(cata_str)
 
     treefile = nltk.data.find(pickle_dir).open()
-    treeset = restore_from_disk(treefile)
+    treeset = restore_from_disk(treefile, language)
     morph = get_file_list(cata, 'morphology-files')
     syn = get_file_list(cata, 'lexicon-files')
     temp = get_file_list(cata, 'templates-files')
@@ -1518,12 +1518,12 @@ def grammar_file_parse(text):
         tagset[tree_name] = new_tree
     return tagset
 
-def parse_from_files(cata, files):
+def parse_from_files(cata, files, language):
     """
     Get the TAGTreeSet from the gram file. The file format
     is defined in Upenn Xtag project.
     """
-    language = 'english'
+    #language = 'english'
     if not isinstance(files, basestring):
         raise TypeError('input should be a base string')
     tree_list = get_file_list(cata, files)
@@ -1783,8 +1783,8 @@ def demo():
     cata_str = nltk.data.find(gramfile).open().read()
     cata = get_catalog(cata_str)
     sfs = get_start_feature(cata)
-    t = parse_from_files(cata, 'tree-files')
-    t += parse_from_files(cata, 'family-files')
+    t = parse_from_files(cata, 'tree-files', 'english')
+    t += parse_from_files(cata, 'family-files', 'english')
     t.set_start_fs(sfs)
     alph_tree = t['family-files']['TEnx1V.trees']['\x02Enx1V']
 

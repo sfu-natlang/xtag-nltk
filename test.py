@@ -9,26 +9,44 @@ class Pattern:
 
     def __init__(self,child_list,pattern_type=0):
         """
-        type == 0: Simple set of words (characters)
-        type == 1: Concatenation
-        type == 2: Disjunction
-        type == 3: Star
+        Construct a new node for string recognition. The children of this node
+        and the pattern type determines the language of this node.
+        
+        pattern_type == 0: Simple set of words (characters)
+        pattern_type == 1: Concatenation
+        pattern_type == 2: Disjunction
+        pattern_type == 3: Star
+
+        :param child_list: A list of nodes or a list of strings
+        :type child_list: list
         """
         self.child = child_list
         self.type = pattern_type
+        # This dictionary is used to dispatch different types to the proper
+        # method, saving time when we get a new node to parse
         self.type_dict = {0: self.match_basic, 1: self.match_concatenation,
                           2: self.match_disjunction,
                           3: self.match_star, 4: self.match_add}
         return
 
+    # Some static data for constructing more sophisticated languages
+    # Lower case a-z
     alpha_lower = list('abcdefghijklmnopqrstuvwxyz')
+    # Upper case A-Z
     alpha_upper = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    # Digits 0-9
     digit = list('0123456789')
+    # Underline, may be used to recognioze a C-style identifier
     underline = list('_')
+    # Alphabet a-zA-Z
     alpha = alpha_lower + alpha_upper
+    # Alphabet and Digits a-zA-Z0-9
     alpha_num = alpha + digit
+    # Alphabet and Digits and Underline a-zA-Z0-9_
     alpha_num_ul = alpha + digit + underline
+    # Alphabet and Underline a-zA-Z_
     alpha_ul = alpha + underline
+    # Space characters
     space = list(' \n\t')
     
     def __add__(self, rhs):
@@ -62,6 +80,12 @@ class Pattern:
         return Pattern(new_list,self.type)
 
     def print_tree(self,table=0):
+        """
+        Print out how the Pattern is structured using nodes.
+
+        :param table: Number of spaces ('\t') preceding the text
+        :type table: integer
+        """
         ret = ' ' * table +  ('<Pattern Type %d>' % (self.type))
         if self.type == 0:
             ret += '\n' + ' ' * (table + 4) + str(self.child)
@@ -71,9 +95,23 @@ class Pattern:
         return ret
     
     def __repr__(self):
+        """
+        Output the structure of the node.
+        """
         return self.print_tree()
 
     def __and__(self,other):
+        """
+        Given two Pattern instances (the same type or different types) the
+        '&' operator will return a new instance which is the concatenation
+        of the language of the two nodes.
+
+        :param other: Pattern instance that you want to do concatenation
+        :type other: Pattern
+
+        :return: The resulting instance
+        :rtype: Pattern
+        """
         if self.type == 1 and other.type == 1:
             return Pattern(self.child + other.child,1)
         elif self.type == 1:
@@ -85,6 +123,16 @@ class Pattern:
             return Pattern([self,other],1)
 
     def __or__(self,other):
+        """
+        Return the disjunction of two nodes. In other words it is an 'OR'
+        relationship.
+
+        :param other: Pattern instance that you want to do disjunction
+        :type other: Pattern
+
+        :return: The resulting instance
+        :rtype: Pattern
+        """
         if self.type == 2 and other.type == 2:
             return Pattern(self.child + other.child,2)
         elif self.type == 2:
@@ -95,12 +143,21 @@ class Pattern:
             return Pattern([self,other],2)
 
     def star(self):
+        """
+        Return the star(*) of the node. This method do not need another
+        argument. The resulting node can recognize 0 to any number of
+        pattern repetitions of this node.
+        """
         if self.type == 3:
             return self
         else:
             return Pattern([self],3)
 
     def add(self):
+        """
+        Return the add(+) of the node. The resulting node can recognize 1 to
+        any number of pattern repetitions of this node.
+        """
         if self.type == 4:
             return self
         else:
@@ -128,6 +185,21 @@ class Pattern:
             return (False,next_index)
 
     def match_basic(self,s,next_index=0):
+        """
+        Match basic strings without any pattern from the input string. This
+        is used for the bottommost nodes, whose children are all strings. And
+        these strings are metched and the longest among them are returned.
+
+        Please notice that the children list does not mean a concatenation of
+        all these nodes, instead, it provides several choices, and we try our
+        best to get the longest match and return it.
+
+        :param s: The input string
+        :type s: str
+        :param next_index: Current position for reading
+        :type next_index: integer
+        """
+        # Used to record whether there is a match and if there is the longest
         max_length = -1
         success_str = None
         for i in self.child:
@@ -143,15 +215,28 @@ class Pattern:
             if test_str == i and max_length < length:
                 max_length = length
                 success_str = i
+        # If these has even been a match, then return it
         if max_length != -1:
             return (success_str,next_index + max_length)
         else:
             return (False,next_index)
 
     def match_concatenation(self,s,next_index=0):
+        """
+        Match the concatenation of all its child nodes. The child nodes can
+        be a basic node (pattern_type = 0) or a complex node.
+
+        :param s: The input string
+        :type s: str
+        :param next_index: Current position for reading
+        :type next_index: integer
+        """
         # If match fails just return this
         next_index_bak = next_index
+        # This cannot be None since we need to do string concatenation
         success_str = ''
+        # Iterate among all children and match them recursively. Return the
+        # result if and only if all of them get matched
         for i in self.child:
             ret = i.get_match(s,next_index)
             if ret[0] == False:
@@ -162,6 +247,14 @@ class Pattern:
         return (success_str,next_index)
 
     def match_disjunction(self,s,next_index=0):
+        """
+        Match the disjunction of children nodes.
+
+        :param s: The input string
+        :type s: str
+        :param next_index: Current position for reading
+        :type next_index: integer
+        """
         max_length = -1
         success_str = None
         for i in self.child:
@@ -178,43 +271,98 @@ class Pattern:
             
 
     def match_star(self,s,next_index=0):
+        """
+        Match the star of a node. Please notice that we also accept a non-match
+        which means that this method will always return a result even if it
+        fails. (According to definition a star also matches the empty string).
+
+        Also the children nodes are treated like a type 1 (concatenation) node,
+        instead of a type 2 (disjunction) node.
+
+        :param s: The input string
+        :type s: str
+        :param next_index: Current position for reading
+        :type next_index: integer
+        """
+        # Treat this as a concatenation
         self.type = 1
         success_str = ''
+        # Match the node (type = 1) as long as possible
         while True:
             ret = self.get_match(s,next_index)
+            # Match until there is a non-match. This can be the first one
+            # or in the middle
             if ret[0] == False:
                 break
             else:
                 success_str += ret[0]
                 next_index = ret[1]
-                    
+        # Do not forget to restore the original type
         self.type = 3
+        # This method always return the result, even if it recogniozes
+        # the empty string
         return (success_str,next_index)
 
     def match_add(self,s,next_index=0):
+        """
+        Very similar to matching the star node, except that we need to make
+        sure at least one string get matched before we return. If there is not
+        even a single match then this method will return a fail instead of a
+        success with an empty string.
+
+        :param s: The input string
+        :type s: str
+        :param next_index: Current position for reading
+        :type next_index: integer
+        """
         next_index_bak = next_index
         success_str = ''
         self.type = 1
+        # Do a match first
         ret = self.get_match(s,next_index)
+        # Not even a single match, return fail
         if ret[0] == False:
             self.type = 4
             return (False,next_index_bak)
         else:
             next_index = ret[1]
             success_str += ret[0]
+        # Then treat it like a star node.
         self.type = 3
         ret = self.get_match(s,next_index)
+        # We can use this drirectly since type 3 node never fails
         success_str += ret[0]
+        # Restore the type
         self.type = 4
         return (success_str,ret[1])
 
     def get_match(self,s,next_index=0):
+        """
+        A general one to match the string, regardless of the certain type.
+        Use the jump table (a dictionary) in the static data area.
+
+        :param s: The input string
+        :type s: str
+        :param next_index: Current position for reading
+        :type next_index: integer
+        """
         return self.type_dict[self.type](s,next_index)
 
     def parse(self,s,next_index=0):
+        """
+        The same as get_match(). This is an interface reserved for the Parser
+        :param s: The input string
+        :type s: str
+        :param next_index: Current position for reading
+        :type next_index: integer
+        """
         return self.get_match(s,next_index)
 
 class PatternBuilder:
+    """
+    Some general and useful patterns, a little bit more complex than the simple
+    pattern. Essentially this is a diuctionary encapsulated in an instance.
+    """
     built_in = {
         'point': Pattern(['.']),
         'comma': Pattern([',']),
@@ -266,14 +414,41 @@ class LLGrammar:
     """
 
     class Star:
-        def __init__(self,rhs):
+        """
+        LL Grammar for the loop structure star(*)
+        """
+        def __init__(self,rhs,func=None):
+            """
+            :param rhs: A grammar element
+            :type rhs: Grammar Element (various type)
+            :param func: A function dealing with the result, the return 
+            value of which will be appended to the end of the parsing result
+            :type func: callable
+            """
             self.rhs = rhs
+            self.func = func
             return
 
         def __repr__(self):
             return 'LLGRammar Element: Star'
         
-        def parse(self,s,next_index):
+        def parse(self,s,next_index=0):
+            """
+            Parse the star by iterating through elements in rhs.
+
+            If self.func is not None then we will first call func() to process
+            the list parse_result, and then return it. If it is None then we
+            will just return parse_result without any modification.
+
+            :param s: The input string
+            :type s: str
+            :param next_index: Current position for reading
+            :type next_index: integer
+
+            :return: Parse result, the first element is the string or False,
+            and the second element is the next_index
+            :rtype: tuple(str/False,integer)
+            """
             parse_result = []
             single_loop = LLGrammar('loop',[self.rhs])
             while True:
@@ -282,27 +457,72 @@ class LLGrammar:
                     return (parse_result,next_index)
                 else:
                     next_index = ret[1]
-                    parse_result += ret[0][1:]
+                    if self.func == None:
+                        # The 'loop' label is reserved
+                        parse_result += ret[0][1:]
+                    else:
+                        # If we have defined a function then call the func
+                        # It should know the structure of the return value
+                        parse_result += self.func(ret[0])
             raise ValueError('You should not have seen this. Fatal Error!!')
 
     class Add:
-        def __init__(self,rhs):
+        """
+        LL Grammar for the add(+) structure
+        """
+        def __init__(self,rhs,func=None):
+            """
+            Please refer to class Star
+            """
             self.rhs = rhs
+            self.func = func
             return
         
         def __repr__(self):
             return 'LLGrammar Element: Add'
 
         def parse(self,s,next_index):
+            """
+            Parse the add(+) structure. Nearly the same as the star(*), except
+            that it requires at least 1 success parse, so if there is not even
+            1 parse it will fail.
+
+            :param s: The input string
+            :type s: str
+            :param next_index: Current position for reading
+            :type next_index: integer
+
+            :return: Parse result, the first element is the string or False,
+            and the second element is the next_index
+            :rtype: tuple(str/False,integer)
+            """
             parse_result = []
             single_loop = LLGrammar('add',[self.rhs])
+            # First we will ensure that there is at least 1 parse
             ret = single_loop.parse(s,next_index)
-            if ret[0] == False:
-                return (parse_result,next_index)
+            # If there is not even 1 parse, then return fail
+            if(ret[0] == False):
+                return (False,next_index)
             else:
                 next_index = ret[1]
-                parse_result += ret[0][1:]
-                return (parse_result,next_index)
+                if self.func == None:
+                    parse_result += ret[0][1:]
+                else:
+                    parse_result += self.func(ret[0])
+                
+            # Then this is the same as a start
+            while True:
+                ret = single_loop.parse(s,next_index)
+                if ret[0] == False:
+                    return (parse_result,next_index)
+                else:
+                    next_index = ret[1]
+                    # If we have defined the function then just process the result
+                    # using this function
+                    if self.func == None:
+                        parse_result += ret[0][1:]
+                    else:
+                        parse_result += self.func(ret[0])
             raise ValueError('You should not have seen this. Fatal Error!!')
 
     class Nested:
@@ -319,6 +539,13 @@ class LLGrammar:
         stop and return the result as well as the next_index.
         """
         def __init__(self,start_symbol,end_symbol):
+            """
+            :param start_symbol: The symbol that will cause the stack to
+            push
+            :type start_symbol: A grammar element
+            :param end_symbol: The symbol that will cause the stack to pop
+            :type end_symbol: A grammar element
+            """
             self.start_symbol = start_symbol
             self.end_symbol = end_symbol
             return
@@ -327,6 +554,19 @@ class LLGrammar:
             return 'LLGrammar Element: Nested'
 
         def parse(self,s,next_index):
+            """
+            Get the nested structure using a stack (for simplicity we only
+            use the stack pointer instead of a real stack).
+
+            :param s: The input string
+            :type s: str
+            :param next_index: Current position for reading
+            :type next_index: integer
+
+            :return: Parse result, the first element is the string or False,
+            and the second element is the next_index
+            :rtype: tuple(str/False,integer)
+            """
             next_index_bak = next_index
             start_pattern = self.start_symbol
             end_pattern = self.end_symbol
@@ -359,11 +599,17 @@ class LLGrammar:
                             next_index += 1
             raise ValueError('You shuold not have seen this.')
                 
-    
+    # Very important. Used to extract tokens from an input stream
     space_pattern = Pattern(Pattern.space).star()
 
     @staticmethod
     def print_tree(parse_result,table=0):
+        """
+        Print the internal structure of a grammar element
+
+        :param table: The number of spaces ('\t') before the text
+        :type table: integer
+        """
         line = table * ' '
         if isinstance(parse_result,str):
             line += parse_result
@@ -619,21 +865,46 @@ class FeatureReader:
 
 class KoreanSyntaxReader:
     """
-    pb = PatternBuilder()
-    index = pb['bslash'] & pb['alnum'] & pb['bslash']
-    pos = pb['alnum']
-    tree_name = pb['alnum'] + Pattern(list('\x02\x03'))\
-    comment_string = (pb['char'] + Pattern(list(' \t\r\v'))).star()
-    feature_entry = 
-    tree_entry = LLGrammar([[tree_name,LLGrammar.Add([])]])
-`   """
+    Reads in Korean Grammar (github version) and converts it to a recognizable
+    format for grammar reader.
+
+    Initialize the instance using the string read from the source syntax file
+    (the whole file), then call the parse() method. After that the member
+    self.features is a dictionary containing the templates, and self.entries
+    is a list containing all lines in the target syntax file.
+
+    If you want to dump these data to the disk, then you can call the dump()
+    method after calling parse(). The default file names for the target syntax
+    and template files are 'syntax_coded.flat' and 'templates.lex'
+    respectively.
+    """
 
     def __init__(self,s):
+        """
+        Initialize the reader using a string read from the Korean Grammar's
+        syntax file.
+
+        :param s: The string read from the source syntax file
+        :type s: str
+        """
         self.s = s
         self.features = {}
         self.entries = []
+        return
 
     def parse_line(self,line):
+        """
+        Converts each line in the original syntax file into several lines in
+        the target format, and also record these in-line feature structures
+        in a dictionary, which can be further used to generate the template.
+
+        This method also modifies the dictionary self.features
+        
+        :param line: A non-empty line from the source syntax file
+        :type line: str
+        :return: A list of lines in the target syntax file
+        :rtype: list(str)
+        """
         if line[0] != '\\':
             raise ValueError('A line must start with a back slash')
         next_bslash = line.find('\\',1)
@@ -700,6 +971,11 @@ class KoreanSyntaxReader:
                 
 
     def parse(self):
+        """
+        Split the input string into lines, and parse them seperately using
+        parse_line method. Also after calling parse_line it will collect the
+        lines generated by that method for future dump.
+        """
         lines = self.s.splitlines()
         for i in lines:
             i = i.strip()
@@ -711,10 +987,24 @@ class KoreanSyntaxReader:
         return
 
     def print_feature(self):
+        """
+        Print out all features (templates) in the form acceptable by grammar
+        reader on stdout. This is also called a template.
+        """
         for i in self.features.keys():
             print '#' + i + '\t' + self.features[i] + ' !'
 
-    def dump(self,syntax_file,template_file):
+    def dump(self,
+             syntax_file='syntax_coded.flat',template_file='template.lex'):
+        """
+        Given the file name of the syntax file and the template file, dump
+        these two files to the disk.
+
+        :param syntax_file: File name for the syntax file
+        :type syntax_file: str
+        :param template_file: File name for the template file
+        :type template_file: str
+        """
         tf = open(template_file,'w')
         for i in self.features.keys():
             tf.write('#' + i + '\t' + self.features[i] + ' !\r\n')
@@ -731,7 +1021,8 @@ s = fp.read()
 a = KoreanSyntaxReader(s)
 a.parse()
 a.dump('syntax_coded.flat','templates.lex')
-    
+
+
 """
 fp = open('Tnx0VAN1Pnx2.trees')
 s = fp.read().strip()
@@ -751,5 +1042,6 @@ c = a.get_feature('nx0VAN1Pnx2-PRO')
 fr = FeatureReader(c[1:-1])
 fr.parse()
 fr.make_list()
-print fr.features
+print a.parsed_trees
+#print fr.features
 """
