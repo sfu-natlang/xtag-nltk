@@ -1790,4 +1790,7 @@ def demo():
 
 
 if __name__ == '__main__':
-    install()
+    if len(sys.argv) == 1:
+    	install('english')
+    else:
+        install(sys.argv[1])
