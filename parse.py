@@ -697,8 +697,8 @@ class DependencyGraphView(TAGTreeSetView):
         self._os = None
         self._ps = None
 
-def demo():
-    t = load()
+def demo(lang):
+    t = load(lang)
     viewer = DependencyGraphView(t)
     viewer.mainloop()
 
@@ -1145,5 +1145,5 @@ if __name__ == '__main__':
     #debug_check_name_equality()
     #test()
     #dump()
-    demo()
+    demo('english')
     #projective_parse('Hells Angels was formed in 1948 and incorporated in 1966.')
