@@ -1,0 +1,3 @@
+the _ D betaDnx_4 D betaDnx_3
+cat _ N alphaNXN N alphaN
+cried _ V alphanx0V V alphanx0Vnx1

@@ -1,0 +1,29 @@
+﻿Hello. This is a video walkthrough of the Python-based XTAG Grammar Viewer that was developed by Ziqi Wang, Haotian Zhang and Anoop Sarkar at the Simon Fraser University Natural Language lab in British Columbia, Canada. Our XTAG grammar viewer can be used to view the wide-coverage English grammar that was developed as part of the XTAG Project at UPenn. The viewer was built using the Natural Language Toolkit, NLTK, and we hope it will be released as part of NLTK in a future release.
+
+The XTAG project was a research project that was active in the 1990s and early 2000s and the focus of the project was to develop a wide coverage grammar for English and other languages using the Tree Adjoining Grammar formalism or TAG for short.  You can learn more about TAG by visiting http://bit.ly/tag-intro. 
+
+Let us start using the XTAG grammar viewer. Our code is available on Github, and it requires NLTK to be installed. 
+
+First you need to download the XTAG grammars and install it into the nltk data directory. We have an install script to do this which can be downloaded from the github repository of the SFU Natural Language Lab. Go to github.com/sfu-natlang/xtag-english-grammar and follow the Install Instructions in the readme file there.
+
+After downloading the install.sh file, run that script. It will automatically help you to download the grammars and install them. It takes a couple of seconds to read the grammar and save it. Ok now it is done.
+
+The second step is to check out the grammar viewer code on github. Go to github.com/sfu-natlang/xtag-nltk and download the zip file containing this code. Put it somewhere convenient, and run python draw.py english. Wait for a few seconds and then you will see the main window.
+
+The window is divided into four parts. At the very top is an input box and a selection box. These two are used to input or select words. The middle left is a list box, which is used to select trees to display. The middle right is the canvas, on which the trees and feature structures are drawn. And on the bottom we have some options which will help us view the details of grammar.
+
+Let us start to explore the grammar by selecting an entry on the middle-left list box. There are several tree families and trees to choose from. A tree family is a group of trees with the same subcategorization frame that has been transformed into various syntactic forms such as wh- question forms or relative clause forms. Let us view the tree family for transitive verbs. By selecting a tree from this family we see the tree on the main viewer pane. Notice the comment, which is a quick summary about what this tree is and how it can be used. Click on the lable called 'comment', you can display or hide the comment on the canvas.
+
+By default the program draws tree nodes together with the feature structures. If you don't want to see feature structures, just click the hide feature button on the bottom, and the features will not be shown. This makes the tree easier to inspect. 
+
+For example in this tree now we can see there are three types of nodes here, the node with a diamond is the anchor node, and the node with an arrow is the substitution node, and finally the node with a star is the adjunction node. 
+
+Instead of eliminating features, we can also add features. Click the add start feature button at the bottm, you can add the start feature to the top part of the root node.
+
+Besides we can also filter the feature structures using regular expressions. On the bottom text box you can type in a regular expression, such as 'assign-*', and then click 'remove', as you can see all feature entries with a regexp 'assign-*' is removed. And if you click keep, then all qualified entries are kept. Similarly if you click highlight then the entries are highlighted. Any valid regular expression to python's re library can be accepted.
+
+On the top of the window, you can type in a word or some words, and click the search button. Then all trees applicable to this word is shown in the selection pane on the left.
+
+When you are viewing trees, you can also click the selection box on the top, and you will see a list of words available for this tree. Just choose some words on the selection box, then click select button, the effect is same as typing in the word and click search.
+
+We have a TAG parser under development. Also if you find some bugs in the code or in the grammar, then please create an issue on our github repository pages.

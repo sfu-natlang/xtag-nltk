@@ -20,7 +20,7 @@ Installation
 ------------
 
 0. Remove any previous data in `~/nltk_data/xtag_grammar` if previously installed.
-1. Run `sh install.sh`. This will install the english and korean grammars into `~/nltk_data/xtag_grammar`.
+1. Run `sh install-xtag-grammars.sh`. This will install the english and korean grammars into `~/nltk_data/xtag_grammar`.
 2. Run `python draw.py english` to view the XTAG English grammar.
 3. Run `python draw.py korean` to view the XTAG Korean grammar.
 

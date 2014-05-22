@@ -36,6 +36,8 @@ eval $download_cmd$"https://raw.github.com/sfu-natlang/xtag-nltk/master/load.py"
 eval $download_cmd$"https://raw.github.com/sfu-natlang/xtag-nltk/master/feature.py"
 eval $download_cmd$"https://raw.github.com/sfu-natlang/xtag-nltk/master/LL1.py"
 
-python util.py english
-python util.py korean
+python util.py
+python -c'import util; util.install("english")'
+python -c'import util; util.install("korean")'
+
 rm -f *.{py,pyc}
