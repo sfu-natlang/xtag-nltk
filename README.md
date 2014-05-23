@@ -1,5 +1,7 @@
 NLTK interface to the XTAG grammar files in multiple languages.
 
+Github repository: https://github.com/sfu-natlang/xtag-nltk.git
+
 Authors:
 
 * Ziqi Wang
@@ -19,8 +21,10 @@ Original XTAG interface and [XTAG project web page](http://www.cis.upenn.edu/~xt
 Installation
 ------------
 
-0. Remove any previous data in `~/nltk_data/xtag_grammar` if previously installed.
-1. Run `sh install-xtag-grammars.sh`. This will install the english and korean grammars into `~/nltk_data/xtag_grammar`.
-2. Run `python draw.py english` to view the XTAG English grammar.
-3. Run `python draw.py korean` to view the XTAG Korean grammar.
+0. git clone https://github.com/sfu-natlang/xtag-nltk.git
+1. cd xtag-nltk
+2. Remove any previous data in `~/nltk_data/xtag_grammar` if previously installed.
+3. Run `sh install-xtag-grammars.sh`. This will install the english and korean grammars into `~/nltk_data/xtag_grammar`.
+4. Run `python draw.py english` to view the XTAG English grammar.
+5. Run `python draw.py korean` to view the XTAG Korean grammar.
 

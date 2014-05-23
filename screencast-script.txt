@@ -1,14 +1,10 @@
 ﻿Hello. This is a video walkthrough of the Python-based XTAG Grammar Viewer that was developed by Ziqi Wang, Haotian Zhang and Anoop Sarkar at the Simon Fraser University Natural Language lab in British Columbia, Canada. Our XTAG grammar viewer can be used to view the wide-coverage English grammar that was developed as part of the XTAG Project at UPenn. The viewer was built using the Natural Language Toolkit, NLTK, and we hope it will be released as part of NLTK in a future release.
 
-The XTAG project was a research project that was active in the 1990s and early 2000s and the focus of the project was to develop a wide coverage grammar for English and other languages using the Tree Adjoining Grammar formalism or TAG for short.  You can learn more about TAG by visiting http://bit.ly/tag-intro. 
-
 Let us start using the XTAG grammar viewer. Our code is available on Github, and it requires NLTK to be installed. 
 
-First you need to download the XTAG grammars and install it into the nltk data directory. We have an install script to do this which can be downloaded from the github repository of the SFU Natural Language Lab. Go to github.com/sfu-natlang/xtag-english-grammar and follow the Install Instructions in the readme file there.
+Go to https://github.com/sfu-natlang/xtag-nltk
 
-After downloading the install.sh file, run that script. It will automatically help you to download the grammars and install them. It takes a couple of seconds to read the grammar and save it. Ok now it is done.
-
-The second step is to check out the grammar viewer code on github. Go to github.com/sfu-natlang/xtag-nltk and download the zip file containing this code. Put it somewhere convenient, and run python draw.py english. Wait for a few seconds and then you will see the main window.
+Follow the README instructions.
 
 The window is divided into four parts. At the very top is an input box and a selection box. These two are used to input or select words. The middle left is a list box, which is used to select trees to display. The middle right is the canvas, on which the trees and feature structures are drawn. And on the bottom we have some options which will help us view the details of grammar.
 
